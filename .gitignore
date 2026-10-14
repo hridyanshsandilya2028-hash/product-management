@@ -1,0 +1,10 @@
+.vercel
+node_modules
+dist
+.env
+.env.local
+.impeccable
+.playwright-mcp
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
