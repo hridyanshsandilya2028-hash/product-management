@@ -46,6 +46,7 @@ src/
 - The app supports two theme variants, `vigilante` and `shadow`, via `data-theme` on the root HTML element.
 - Mobile-first styling targets narrow screens while remaining usable on larger desktop layouts.
 - Supabase is configured through `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. The app remains usable in mock/local mode when these values are absent.
+- After a successful sign-in, the app invokes the `welcome-login` Supabase Edge Function. Configure its `RESEND_API_KEY` and `WELCOME_FROM_EMAIL` secrets before using the workflow.
 
 ## Supabase setup
 
@@ -57,6 +58,19 @@ VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
 ```
 
 The client is intentionally limited to the browser-safe publishable key. Do not commit service-role keys or other secrets. Run `supabase/schema.sql` in the Supabase SQL editor to create the profile table and row-level security policies. The app uses Supabase email/password authentication, creates or loads the signed-in user's profile, and provides an explicit sign-out action that clears the in-memory workspace. Supabase auth sessions are not persisted in localStorage, so a new browser use starts at the vibrant sign-in screen.
+
+### Welcome email workflow
+
+The `supabase/functions/welcome-login` Edge Function sends a “Welcome back” email after each successful password sign-in. It verifies the caller's Supabase session before calling Resend. Deploy it with the Supabase CLI, then configure the secrets in the Supabase dashboard or CLI:
+
+```bash
+supabase functions deploy welcome-login --project-ref egzmzlqoyhvvpwpopzdw
+supabase secrets set --project-ref egzmzlqoyhvvpwpopzdw \
+  RESEND_API_KEY=re_xxx \
+  WELCOME_FROM_EMAIL="Contingency Genius <welcome@your-verified-domain.com>"
+```
+
+`WELCOME_FROM_EMAIL` must use a verified sender/domain in Resend. The email failure does not prevent the user from entering the app; the login screen reports that the welcome email could not be sent.
 
 ## Route flow
 
