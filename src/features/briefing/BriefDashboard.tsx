@@ -58,6 +58,21 @@ export function BriefDashboard() {
         </div>
       </Card>
 
+      <div className="brief-status-grid" aria-label="Day status">
+        <div className="status-tile">
+          <span className="status-tile-icon" aria-hidden="true">☀</span>
+          <span><strong>24°</strong><small>Clear now</small></span>
+        </div>
+        <div className="status-tile">
+          <span className="status-tile-icon" aria-hidden="true">⌁</span>
+          <span><strong>{briefing.energy}</strong><small>Energy check</small></span>
+        </div>
+        <div className="status-tile">
+          <span className="status-tile-icon" aria-hidden="true">◷</span>
+          <span><strong>{briefing.situations.length}</strong><small>Things to watch</small></span>
+        </div>
+      </div>
+
       <div className="brief-section-header">
         <div>
           <p className="eyebrow">CONTINGENCIES · YOUR BACKUP PLANS</p>
