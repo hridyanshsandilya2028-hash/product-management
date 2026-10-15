@@ -1,5 +1,14 @@
 import { supabase } from "./supabaseClient";
+import { defaultProfile } from "../data/mockProfiles";
 import type { Profile } from "../types";
+
+interface ProfileRow {
+  display_name: string | null;
+  mode: Profile["mode"];
+  risk_tolerance: number;
+  backup_contacts: Profile["backupContacts"];
+  custom_situations: Profile["customSituations"];
+}
 
 export async function getCurrentUserId() {
   if (!supabase) {
@@ -21,6 +30,7 @@ export async function saveProfile(userId: string, profile: Profile) {
 
   const { error } = await supabase.from("profiles").upsert({
     id: userId,
+    display_name: profile.displayName,
     mode: profile.mode,
     risk_tolerance: profile.riskTolerance,
     backup_contacts: profile.backupContacts,
@@ -42,4 +52,26 @@ export async function saveCurrentUserProfile(profile: Profile) {
   }
 
   return saveProfile(userId, profile);
+}
+
+export async function loadCurrentUserProfile() {
+  const userId = await getCurrentUserId();
+  if (!userId || !supabase) return null;
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("display_name, mode, risk_tolerance, backup_contacts, custom_situations")
+    .eq("id", userId)
+    .maybeSingle<ProfileRow>();
+
+  if (error) throw new Error(`Unable to load profile: ${error.message}`);
+  if (!data) return null;
+
+  return {
+    displayName: data.display_name ?? defaultProfile.displayName,
+    mode: data.mode,
+    riskTolerance: data.risk_tolerance,
+    backupContacts: data.backup_contacts,
+    customSituations: data.custom_situations,
+  } satisfies Profile;
 }

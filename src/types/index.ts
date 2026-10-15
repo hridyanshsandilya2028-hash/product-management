@@ -70,6 +70,7 @@ export interface LocationCoordinates {
 }
 
 export interface Profile {
+  displayName: string;
   mode: Mode;
   riskTolerance: number;
   backupContacts: Contact[];

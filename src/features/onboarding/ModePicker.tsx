@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
@@ -10,21 +10,12 @@ export function ModePicker() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<Mode>("vigilante");
 
-  useEffect(() => {
-    const savedMode = window.localStorage.getItem("contingency-genius-mode");
-    if (savedMode === "vigilante" || savedMode === "shadow") {
-      document.documentElement.dataset.theme = savedMode;
-      navigate("/brief", { replace: true });
-    }
-  }, [navigate]);
-
   function chooseMode(nextMode: Mode) {
     setMode(nextMode);
     document.documentElement.dataset.theme = nextMode;
   }
 
   function enterApp() {
-    window.localStorage.setItem("contingency-genius-mode", mode);
     navigate("/brief");
   }
 

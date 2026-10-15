@@ -4,6 +4,7 @@ import { Card } from "../../components/ui/Card";
 import { locationService } from "../../services/locationService";
 import { getCurrentUserId, saveCurrentUserProfile } from "../../services/profileService";
 import { isSupabaseConfigured } from "../../services/supabaseClient";
+import { supabase } from "../../services/supabaseClient";
 import { useAppStore } from "../../store/useAppStore";
 import type { Contact } from "../../types";
 
@@ -34,6 +35,11 @@ export function SettingsPage() {
     } catch {
       setSyncStatus("Could not sync right now");
     }
+
+  }
+
+  async function signOut() {
+    await supabase?.auth.signOut();
   }
 
   async function enableNotifications() {
@@ -249,6 +255,10 @@ export function SettingsPage() {
           </ul>
         )}
       </Card>
+
+      <button className="button button-ghost sign-out-button" type="button" onClick={signOut}>
+        Sign out and start fresh
+      </button>
     </section>
   );
 }

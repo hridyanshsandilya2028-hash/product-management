@@ -10,18 +10,16 @@ describe("ModePicker", () => {
     document.documentElement.dataset.theme = "vigilante";
   });
 
-  it("redirects returning users to the brief", () => {
-    window.localStorage.setItem("contingency-genius-mode", "shadow");
+  it("starts a fresh onboarding flow each time", () => {
     render(
       <MemoryRouter initialEntries={["/"]}>
         <Routes>
           <Route path="/" element={<ModePicker />} />
-          <Route path="/brief" element={<div>Brief ready</div>} />
         </Routes>
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("Brief ready")).toBeInTheDocument();
+    expect(screen.getByText(/stay ready/i)).toBeInTheDocument();
   });
 
   it("lets the user choose a mode and enter the brief", () => {

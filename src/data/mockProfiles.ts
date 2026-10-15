@@ -29,6 +29,7 @@ const defaultCustomSituations: Situation[] = [
 ];
 
 export const defaultProfile: Profile = {
+  displayName: "Ready when you are",
   mode: "vigilante",
   riskTolerance: 0.7,
   backupContacts: defaultContacts,

@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import { defaultProfile } from "../data/mockProfiles";
 import { mockCalendarEvents } from "../data/mockEvents";
 import { mockWeatherSnapshot } from "../data/mockWeather";
@@ -26,9 +25,7 @@ const fallbackBriefing = buildRiskFromDay(
   defaultProfile.customSituations,
 );
 
-export const useAppStore = create<AppStore>()(
-  persist(
-    (set) => ({
+export const useAppStore = create<AppStore>()((set) => ({
       mode: defaultProfile.mode,
       profile: defaultProfile,
       briefing: {
@@ -78,7 +75,4 @@ export const useAppStore = create<AppStore>()(
             ),
           },
         })),
-    }),
-    { name: "contingency-genius-store" },
-  ),
-);
+}));
