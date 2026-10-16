@@ -2,18 +2,20 @@ import { create } from "zustand";
 import { defaultProfile } from "../data/mockProfiles";
 import { mockWeatherSnapshot } from "../data/mockWeather";
 import { buildRiskFromDay } from "../engine/riskEngine";
-import type { Contact, DayBriefing, EnergyLevel, Mode, Profile, Situation, WeatherSnapshot } from "../types";
+import type { Contact, DayBriefing, EnergyLevel, Mode, NewsSignal, Profile, Situation, WeatherSnapshot } from "../types";
 
 interface AppStore {
   mode: Mode;
   profile: Profile;
   briefing: DayBriefing;
   weather: WeatherSnapshot;
+  newsSignals: NewsSignal[];
   setMode: (mode: Mode) => void;
   setProfile: (profile: Profile) => void;
   setBriefing: (briefing: DayBriefing) => void;
   setEnergy: (energy: EnergyLevel) => void;
   setWeather: (weather: WeatherSnapshot) => void;
+  setNewsSignals: (signals: NewsSignal[]) => void;
   setRiskTolerance: (value: number) => void;
   updateContact: (id: string, contact: Contact) => void;
   addCustomSituation: (situation: Situation) => void;
@@ -36,6 +38,7 @@ export const useAppStore = create<AppStore>()((set) => ({
         ),
       },
       weather: mockWeatherSnapshot,
+      newsSignals: [],
       setMode: (mode) => {
         if (typeof document !== "undefined") {
           document.documentElement.dataset.theme = mode;
@@ -75,6 +78,7 @@ export const useAppStore = create<AppStore>()((set) => ({
           const personalized = buildRiskFromDay(weather, state.profile.dayEvents, state.profile, state.briefing.energy, state.profile.customSituations);
           return { weather, briefing: { ...state.briefing, riskScore: personalized.riskScore, situations: personalized.situations } };
         }),
+      setNewsSignals: (newsSignals) => set({ newsSignals }),
       setRiskTolerance: (value) =>
         set((state) => ({ profile: { ...state.profile, riskTolerance: value } })),
       updateContact: (id, contact) =>

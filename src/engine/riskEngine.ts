@@ -1,5 +1,5 @@
 import { addMinutes, differenceInMinutes, parseISO } from "date-fns";
-import type { CalendarEvent, EnergyLevel, Level, Profile, Situation, TaskPlan, WeatherSnapshot } from "../types";
+import type { CalendarEvent, EnergyGuide, EnergyLevel, Level, Profile, Situation, TaskPlan, WeatherSnapshot } from "../types";
 
 const impactWeights: Record<Level, number> = {
   low: 1,
@@ -27,36 +27,75 @@ export function buildTaskPlan(event: CalendarEvent): TaskPlan {
   const text = eventText(event);
   if (/(commute|travel|airport|train|flight|drive|transit|pickup|drop.?off)/.test(text)) {
     return {
-      successSteps: ["Confirm route and arrival buffer", "Keep ticket, address, and charger ready"],
-      planA: ["Leave 20 minutes early and check traffic before departure", "Use the fastest route available"],
-      planB: ["Switch to transit, rideshare, or the alternate route", "Send your revised arrival time before leaving"],
+      successSteps: ["Confirm route, pickup point, and arrival buffer", "Keep ticket, address, charger, and offline directions ready"],
+      planA: ["Leave 20 minutes early and check traffic before departure", "Use the fastest route with one known fallback"],
+      planB: ["Switch to transit, rideshare, or the alternate route", "Send your revised arrival time before departure"],
+      checkpoint: "Re-check the route 30 minutes before leaving.",
+      energyTip: "Eat a portable carb-plus-protein snack before departure so the delay does not become an energy crash.",
     };
   }
   if (/(exam|test|interview|presentation|pitch|review|deadline|submission)/.test(text)) {
     return {
-      successSteps: ["Prepare the essential material first", "Set a stop time before the task begins"],
-      planA: ["Deliver the smallest complete version on time", "Keep the required files and notes together"],
-      planB: ["Submit the core result and label follow-up work", "Tell the recipient exactly what remains"],
+      successSteps: ["Prepare the essential material first", "Set a stop time and one proofread checkpoint"],
+      planA: ["Deliver the smallest complete version on time", "Keep required files, notes, and backup copies together"],
+      planB: ["Submit the core result and label follow-up work", "Tell the recipient exactly what remains and when it will land"],
+      checkpoint: "Stop new work 15 minutes before the deadline for a final check.",
+      energyTip: "Choose a steady snack such as yogurt, fruit, or nuts; avoid relying on a large sugar hit right before performance.",
     };
   }
   if (/(meeting|standup|call|sync|client|appointment|consultation|doctor|dentist)/.test(text)) {
     return {
-      successSteps: ["Choose one outcome for the block", "Bring the questions, documents, or details needed"],
-      planA: ["Set a five-minute stopping point", "Capture decisions before leaving"],
-      planB: ["Move open items to a follow-up", "Notify the next commitment if the block overruns"],
+      successSteps: ["Choose one outcome for the block", "Bring the questions, documents, and decision details needed"],
+      planA: ["Set a five-minute stopping point", "Capture decisions, owners, and next dates before leaving"],
+      planB: ["Move open items to a follow-up", "Notify the next commitment with a specific revised time"],
+      checkpoint: "At the midpoint, ask: what still must be decided today?",
+      energyTip: "Use water and a small protein snack before the block if it sits between meals.",
     };
   }
   if (/(class|lecture|study|workout|practice|training|shift|work)/.test(text)) {
     return {
-      successSteps: ["Define the one result that matters", "Set a midpoint reset if the block is long"],
+      successSteps: ["Define the one result that matters", "Set a midpoint reset if the block is longer than 90 minutes"],
       planA: ["Start with the highest-value step", "Use the planned break before focus drops"],
       planB: ["Shorten the lowest-value part", "Move unfinished work into the next available buffer"],
+      checkpoint: "Take a two-minute reset at the midpoint before deciding whether to push on.",
+      energyTip: "Pair complex work with a balanced meal: slow carbs, protein, and a fruit or vegetable.",
     };
   }
   return {
     successSteps: ["Define the next visible action", "Prepare the one item that could stop progress"],
     planA: ["Start on time and protect the first focused block", "Check progress at the midpoint"],
     planB: ["Reduce the task to its essential outcome", "Reschedule the nonessential remainder"],
+    checkpoint: "Review progress halfway through and remove one nonessential step if needed.",
+    energyTip: "Keep water nearby and use a simple protein-and-fiber snack if the block crosses a meal.",
+  };
+}
+
+export function buildEnergyGuide(energy: EnergyLevel, events: CalendarEvent[]): EnergyGuide {
+  const totalMinutes = events.reduce((sum, event) => sum + differenceInMinutes(parseISO(event.end), parseISO(event.start)), 0);
+  if (energy === "low") {
+    return {
+      headline: "Protect your baseline before you push.",
+      timing: totalMinutes >= 360 ? "Eat something substantial before the longest block, then plan a small snack every 3–4 hours." : "Start with food and water before the first demanding block.",
+      foods: ["Oats, eggs, or yogurt with fruit for a steady start", "A portable snack: banana with nuts, hummus with crackers, or a protein bar", "A proper meal with protein, slow carbs, and vegetables before the final stretch"],
+      hydration: "Drink a glass of water now, then keep a bottle visible and sip through the day.",
+      recovery: "If your energy drops, take 10 minutes, eat the prepared snack, and move one optional task rather than forcing the whole plan.",
+    };
+  }
+  if (energy === "high") {
+    return {
+      headline: "Use the extra energy without spending tomorrow's.",
+      timing: "Put your hardest block before the midpoint, then protect a real meal and a short reset.",
+      foods: ["Protein plus slow carbs before deep work or exercise", "Fruit, yogurt, nuts, or a sandwich instead of skipping the next meal", "A lighter evening meal if the day runs long"],
+      hydration: "Keep water close during high-output blocks; add electrolytes only after heavy sweating or prolonged heat.",
+      recovery: "If you feel overstimulated, reduce caffeine, take a short walk, and switch to a lower-friction task.",
+    };
+  }
+  return {
+    headline: "Keep the day steady with simple fuel.",
+    timing: totalMinutes >= 360 ? "Plan a meal before the longest block and one snack before the afternoon dip." : "Eat at your normal meal time and avoid letting the next block push it out.",
+    foods: ["Breakfast or first meal with protein and fiber", "Fruit, nuts, yogurt, or a whole-grain snack between blocks", "A balanced meal before any evening commitment"],
+    hydration: "Start with water and refill at each natural transition between events.",
+    recovery: "If focus slips, take a short reset, hydrate, and restart with the smallest next action.",
   };
 }
 

@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { useAppStore } from "../../store/useAppStore";
 import { Card } from "../../components/ui/Card";
 import type { Situation } from "../../types";
-import { buildTaskPlan } from "../../engine/riskEngine";
+import { buildEnergyGuide, buildTaskPlan } from "../../engine/riskEngine";
 
 type PlanEntry = {
   id: string;
@@ -30,6 +30,7 @@ function formatTime(value: string): string {
 
 export function PlanPage() {
   const { briefing, profile } = useAppStore();
+  const energyGuide = useMemo(() => buildEnergyGuide(briefing.energy, profile.dayEvents), [briefing.energy, profile.dayEvents]);
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
 
   const planEntries = useMemo<PlanEntry[]>(() => {
@@ -146,6 +147,8 @@ export function PlanPage() {
                       </ul>
                       <p className="eyebrow">IF IT SLIPS</p>
                       <p className="muted">{entry.taskPlan.planA[0]} · Otherwise: {entry.taskPlan.planB[0]}</p>
+                      <p className="timeline-checkpoint"><strong>Checkpoint:</strong> {entry.taskPlan.checkpoint}</p>
+                      <p className="muted"><strong>Fuel:</strong> {entry.taskPlan.energyTip}</p>
                     </div>
                   )}
 
@@ -166,6 +169,19 @@ export function PlanPage() {
               </div>
             );
           })}
+        </div>
+      </Card>
+
+      <Card className="energy-guide-card">
+        <div className="plan-card-header">
+          <p className="eyebrow">ENERGY PLAN</p>
+          <span className="muted">{briefing.energy}</span>
+        </div>
+        <h3>{energyGuide.headline}</h3>
+        <p className="muted">{energyGuide.timing}</p>
+        <div className="energy-guide-grid">
+          <div><strong>Eat</strong><ul className="prep-list">{energyGuide.foods.map((food) => <li key={food}>{food}</li>)}</ul></div>
+          <div><strong>Keep steady</strong><p className="muted">{energyGuide.hydration}</p><p className="muted">{energyGuide.recovery}</p></div>
         </div>
       </Card>
 

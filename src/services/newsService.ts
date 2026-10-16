@@ -1,10 +1,5 @@
-export interface NewsSignal {
-  title: string;
-  summary: string;
-  source: string;
-  publishedAt: string;
-  severity: "low" | "medium" | "high";
-}
+import type { NewsSignal } from "../types";
+export type { NewsSignal } from "../types";
 
 export interface NewsService {
   getRelevantSignals: (query: string, location?: string) => Promise<NewsSignal[]>;

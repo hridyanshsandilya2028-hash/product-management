@@ -15,6 +15,7 @@ import { loadCurrentUserProfile, saveCurrentUserProfile } from "../services/prof
 import { useAppStore } from "../store/useAppStore";
 import { locationService } from "../services/locationService";
 import { weatherService } from "../services/weatherService";
+import { newsService } from "../services/newsService";
 
 function Placeholder({ title }: { title: string }) {
   return (
@@ -41,6 +42,8 @@ function SessionRoutes() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const setProfile = useAppStore((state) => state.setProfile);
   const setWeather = useAppStore((state) => state.setWeather);
+  const setNewsSignals = useAppStore((state) => state.setNewsSignals);
+  const profile = useAppStore((state) => state.profile);
 
   useEffect(() => {
     void locationService.getCurrentLocation()
@@ -48,6 +51,17 @@ function SessionRoutes() {
       .then(setWeather)
       .catch((error) => console.warn("Live weather unavailable; using fallback forecast", error));
   }, [setWeather]);
+
+  useEffect(() => {
+    const query = [profile.dayDescription, ...profile.dayPriorities, ...profile.dayEvents.map((event) => event.title)].filter(Boolean).join(", ");
+    if (!query) {
+      setNewsSignals([]);
+      return;
+    }
+    void newsService.getRelevantSignals(query)
+      .then(setNewsSignals)
+      .catch((error) => console.warn("News updates unavailable; continuing without news signals", error));
+  }, [profile.dayDescription, profile.dayPriorities, profile.dayEvents, setNewsSignals]);
 
   useEffect(() => {
     if (!supabase) return;

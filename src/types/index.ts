@@ -51,6 +51,26 @@ export interface TaskPlan {
   successSteps: string[];
   planA: string[];
   planB: string[];
+  checkpoint: string;
+  energyTip: string;
+}
+
+export interface EnergyGuide {
+  headline: string;
+  timing: string;
+  foods: string[];
+  hydration: string;
+  recovery: string;
+}
+
+export interface NewsSignal {
+  title: string;
+  summary: string;
+  source: string;
+  publishedAt: string;
+  severity: "low" | "medium" | "high";
+  category?: "weather" | "traffic" | "safety" | "regional" | "general";
+  location?: string;
 }
 
 export interface DebriefEntry {

@@ -2,9 +2,27 @@ import { useAppStore } from "../../store/useAppStore";
 import { Gauge } from "../../components/ui/Gauge";
 import { Card } from "../../components/ui/Card";
 import { ContingencyCard } from "./ContingencyCard";
+import { buildEnergyGuide } from "../../engine/riskEngine";
+import type { NewsSignal } from "../../types";
+
+function explainNewsImpact(signal: NewsSignal, eventTitles: string[]): string {
+  const text = `${signal.title} ${signal.summary}`.toLowerCase();
+  if (/(traffic|transit|road|rail|flight|airport|strike|delay)/.test(text)) {
+    const travelEvent = eventTitles.find((title) => /(travel|commute|airport|train|flight|drive|transit)/i.test(title));
+    return travelEvent ? `This could compress your ${travelEvent} window, so keep an alternate route and arrival message ready.` : "This may add friction to travel; check the route before leaving and keep a fallback ready.";
+  }
+  if (/(storm|rain|heat|flood|snow|wind|weather)/.test(text)) {
+    return "Outdoor plans may need more time or a sheltered fallback. Re-check conditions before the next exposed block.";
+  }
+  if (/(safety|police|emergency|outage|closure)/.test(text)) {
+    return "This may change which routes or public places feel practical. Prefer well-lit, confirmed routes and keep someone informed.";
+  }
+  return "This is worth monitoring because it may change timing, availability, or attention around your planned commitments.";
+}
 
 export function BriefDashboard() {
-  const { briefing, mode, weather, setEnergy } = useAppStore();
+  const { briefing, mode, weather, profile, newsSignals, setEnergy } = useAppStore();
+  const energyGuide = buildEnergyGuide(briefing.energy, profile.dayEvents);
 
   function handleVoiceBrief() {
     const speechWindow = typeof window !== "undefined" ? window : undefined;
@@ -64,6 +82,30 @@ export function BriefDashboard() {
         </div>
       </Card>
 
+      <Card className="energy-card">
+        <div className="card-heading-row">
+          <div>
+            <p className="eyebrow">ENERGY STRATEGY</p>
+            <h2>{energyGuide.headline}</h2>
+          </div>
+          <span className="status-chip">{briefing.energy} fuel</span>
+        </div>
+        <p className="muted energy-timing">{energyGuide.timing}</p>
+        <div className="energy-columns">
+          <div>
+            <strong>Best fuel today</strong>
+            <ul className="prep-list">
+              {energyGuide.foods.slice(0, 2).map((food) => <li key={food}>{food}</li>)}
+            </ul>
+          </div>
+          <div>
+            <strong>Keep steady</strong>
+            <p className="muted">{energyGuide.hydration}</p>
+            <p className="muted">{energyGuide.recovery}</p>
+          </div>
+        </div>
+      </Card>
+
       <div className="brief-status-grid" aria-label="Day status">
         <div className="status-tile">
           <span className="status-tile-icon" aria-hidden="true">☀</span>
@@ -99,6 +141,36 @@ export function BriefDashboard() {
           <p className="muted">No contingency plans are needed right now. Check back when your day changes.</p>
         </Card>
       )}
+
+      <section className="news-section" aria-labelledby="news-heading">
+        <div className="brief-section-header">
+          <div>
+            <p className="eyebrow">WORLD → YOUR DAY</p>
+            <h2 id="news-heading">News that could change your plan.</h2>
+          </div>
+          <span className="status-chip">{newsSignals.length} signals</span>
+        </div>
+        {newsSignals.length > 0 ? (
+          <div className="news-list">
+            {newsSignals.slice(0, 4).map((signal) => (
+              <article key={`${signal.source}-${signal.title}`} className="news-item">
+                <div className="news-item-top">
+                  <span className={`news-severity severity-${signal.severity}`}>{signal.severity}</span>
+                  <span className="muted">{signal.source}</span>
+                </div>
+                <h3>{signal.title}</h3>
+                <p className="muted">{signal.summary}</p>
+                <p className="news-impact"><strong>For you:</strong> {explainNewsImpact(signal, profile.dayEvents.map((event) => event.title))}</p>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <Card className="empty-state">
+            <strong>No relevant news signal yet.</strong>
+            <p className="muted">When the news adapter is configured, this space will translate nearby or schedule-relevant headlines into concrete changes for your day.</p>
+          </Card>
+        )}
+      </section>
     </section>
   );
 }
