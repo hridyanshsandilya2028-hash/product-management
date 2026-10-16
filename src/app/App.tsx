@@ -44,7 +44,8 @@ function SessionRoutes() {
   const [coordinates, setCoordinates] = useState<LocationCoordinates | null>(null);
   const setProfile = useAppStore((state) => state.setProfile);
   const setWeather = useAppStore((state) => state.setWeather);
-  const setNewsSignals = useAppStore((state) => state.setNewsSignals);
+  const setNewsState = useAppStore((state) => state.setNewsState);
+  const setNewsStatus = useAppStore((state) => state.setNewsStatus);
   const profile = useAppStore((state) => state.profile);
 
   useEffect(() => {
@@ -68,10 +69,14 @@ function SessionRoutes() {
     const locationQuery = coordinates
       ? `${coordinates.latitude},${coordinates.longitude}`
       : undefined;
+    setNewsStatus("loading");
     void newsService.getRelevantSignals(query, locationQuery)
-      .then(setNewsSignals)
-      .catch((error) => console.warn("News updates unavailable; continuing without news signals", error));
-  }, [coordinates, profile.dayDescription, profile.dayPriorities, profile.dayEvents, setNewsSignals]);
+      .then(setNewsState)
+      .catch((error) => {
+        setNewsStatus("error");
+        console.warn("News updates unavailable; continuing without news signals", error);
+      });
+  }, [coordinates, profile.dayDescription, profile.dayPriorities, profile.dayEvents, setNewsState, setNewsStatus]);
 
   useEffect(() => {
     if (!supabase) return;

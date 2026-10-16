@@ -111,6 +111,18 @@ function parseSignals(xml: string): NewsItem[] {
     .filter((signal) => signal.title.length > 0);
 }
 
+function rankLocalSignals(signals: NewsItem[], location: string): NewsItem[] {
+  const terms = location.toLowerCase().split(/[,\s]+/).filter((term) => term.length >= 3);
+  return [...signals].sort((left, right) => {
+    const score = (signal: NewsItem) => {
+      const text = `${signal.title} ${signal.summary}`.toLowerCase();
+      return terms.reduce((total, term) => total + (text.includes(term) ? 2 : 0), 0)
+        + (signal.category === "traffic" || signal.category === "weather" || signal.category === "safety" ? 1 : 0);
+    };
+    return score(right) - score(left);
+  });
+}
+
 export default async function handler(request: Request, response: Response) {
   if (request.method !== "POST") {
     response.status(405).json({ error: "Use POST for news queries." });
@@ -134,7 +146,10 @@ export default async function handler(request: Request, response: Response) {
       signals = parseSignals(await fetchFeed(body.query));
     }
 
-    response.status(200).json({ signals });
+    response.status(200).json({
+      signals: rankLocalSignals(signals, location).map((signal) => ({ ...signal, location: location || undefined })),
+      locationLabel: location || undefined,
+    });
   } catch {
     response.status(502).json({ error: "News provider is temporarily unavailable." });
   }

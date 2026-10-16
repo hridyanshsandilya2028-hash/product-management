@@ -14,6 +14,7 @@ describe("CiteWireNewsService", () => {
           publishedAt: "2026-10-17",
           severity: "medium",
         }],
+        locationLabel: "Mumbai, Maharashtra, India",
       }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -26,6 +27,7 @@ describe("CiteWireNewsService", () => {
       method: "POST",
       body: JSON.stringify({ query: "morning commute", location: undefined }),
     }));
-    expect(signals[0].title).toBe("Transit alert");
+    expect(signals.signals[0].title).toBe("Transit alert");
+    expect(signals.locationLabel).toBe("Mumbai, Maharashtra, India");
   });
 });

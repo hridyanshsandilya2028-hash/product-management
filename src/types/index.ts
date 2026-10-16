@@ -73,6 +73,8 @@ export interface NewsSignal {
   location?: string;
 }
 
+export type NewsStatus = "idle" | "loading" | "ready" | "error";
+
 export interface DebriefEntry {
   date: string;
   predicted: number;

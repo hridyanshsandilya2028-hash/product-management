@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { defaultProfile } from "../data/mockProfiles";
 import { mockWeatherSnapshot } from "../data/mockWeather";
 import { buildRiskFromDay } from "../engine/riskEngine";
-import type { Contact, DayBriefing, EnergyLevel, Mode, NewsSignal, Profile, Situation, WeatherSnapshot } from "../types";
+import type { Contact, DayBriefing, EnergyLevel, Mode, NewsSignal, NewsStatus, Profile, Situation, WeatherSnapshot } from "../types";
 
 interface AppStore {
   mode: Mode;
@@ -10,12 +10,15 @@ interface AppStore {
   briefing: DayBriefing;
   weather: WeatherSnapshot;
   newsSignals: NewsSignal[];
+  newsStatus: NewsStatus;
+  newsLocationLabel?: string;
   setMode: (mode: Mode) => void;
   setProfile: (profile: Profile) => void;
   setBriefing: (briefing: DayBriefing) => void;
   setEnergy: (energy: EnergyLevel) => void;
   setWeather: (weather: WeatherSnapshot) => void;
-  setNewsSignals: (signals: NewsSignal[]) => void;
+  setNewsState: (state: { signals: NewsSignal[]; locationLabel?: string }) => void;
+  setNewsStatus: (status: NewsStatus) => void;
   setRiskTolerance: (value: number) => void;
   updateContact: (id: string, contact: Contact) => void;
   addCustomSituation: (situation: Situation) => void;
@@ -39,6 +42,7 @@ export const useAppStore = create<AppStore>()((set) => ({
       },
       weather: mockWeatherSnapshot,
       newsSignals: [],
+      newsStatus: "idle",
       setMode: (mode) => {
         if (typeof document !== "undefined") {
           document.documentElement.dataset.theme = mode;
@@ -78,7 +82,12 @@ export const useAppStore = create<AppStore>()((set) => ({
           const personalized = buildRiskFromDay(weather, state.profile.dayEvents, state.profile, state.briefing.energy, state.profile.customSituations);
           return { weather, briefing: { ...state.briefing, riskScore: personalized.riskScore, situations: personalized.situations } };
         }),
-      setNewsSignals: (newsSignals) => set({ newsSignals }),
+      setNewsState: ({ signals: newsSignals, locationLabel: newsLocationLabel }) => set({
+        newsSignals,
+        newsLocationLabel,
+        newsStatus: "ready",
+      }),
+      setNewsStatus: (newsStatus) => set({ newsStatus }),
       setRiskTolerance: (value) =>
         set((state) => ({ profile: { ...state.profile, riskTolerance: value } })),
       updateContact: (id, contact) =>

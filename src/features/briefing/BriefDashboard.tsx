@@ -21,7 +21,7 @@ function explainNewsImpact(signal: NewsSignal, eventTitles: string[]): string {
 }
 
 export function BriefDashboard() {
-  const { briefing, mode, weather, profile, newsSignals, setEnergy } = useAppStore();
+  const { briefing, mode, weather, profile, newsSignals, newsStatus, newsLocationLabel, setEnergy } = useAppStore();
   const energyGuide = buildEnergyGuide(briefing.energy, profile.dayEvents);
 
   function handleVoiceBrief() {
@@ -148,9 +148,16 @@ export function BriefDashboard() {
             <p className="eyebrow">WORLD → YOUR DAY</p>
             <h2 id="news-heading">News that could change your plan.</h2>
           </div>
-          <span className="status-chip">{newsSignals.length} signals</span>
+          <span className="status-chip">
+            {newsStatus === "loading" ? "Updating…" : newsLocationLabel ? `Near ${newsLocationLabel}` : `${newsSignals.length} signals`}
+          </span>
         </div>
-        {newsSignals.length > 0 ? (
+        {newsStatus === "loading" && newsSignals.length === 0 ? (
+          <Card className="empty-state">
+            <strong>Finding what matters nearby…</strong>
+            <p className="muted">Checking current headlines against your location and today’s schedule.</p>
+          </Card>
+        ) : newsSignals.length > 0 ? (
           <div className="news-list">
             {newsSignals.slice(0, 4).map((signal) => (
               <article key={`${signal.source}-${signal.title}`} className="news-item">
@@ -166,8 +173,8 @@ export function BriefDashboard() {
           </div>
         ) : (
           <Card className="empty-state">
-            <strong>No relevant news signal yet.</strong>
-            <p className="muted">When the news adapter is configured, this space will translate nearby or schedule-relevant headlines into concrete changes for your day.</p>
+            <strong>{newsStatus === "error" ? "Local news is temporarily unavailable." : "No relevant local news signal yet."}</strong>
+            <p className="muted">{newsStatus === "error" ? "Your plan is still available. We’ll retry when the app refreshes." : "We’ll show nearby weather, traffic, safety, and disruption headlines when available."}</p>
           </Card>
         )}
       </section>
