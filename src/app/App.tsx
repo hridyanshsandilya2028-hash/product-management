@@ -13,6 +13,8 @@ import { AuthPage } from "../features/auth/AuthPage";
 import { supabase } from "../services/supabaseClient";
 import { loadCurrentUserProfile, saveCurrentUserProfile } from "../services/profileService";
 import { useAppStore } from "../store/useAppStore";
+import { locationService } from "../services/locationService";
+import { weatherService } from "../services/weatherService";
 
 function Placeholder({ title }: { title: string }) {
   return (
@@ -38,6 +40,14 @@ function SessionRoutes() {
   const [sessionReady, setSessionReady] = useState(!supabase);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const setProfile = useAppStore((state) => state.setProfile);
+  const setWeather = useAppStore((state) => state.setWeather);
+
+  useEffect(() => {
+    void locationService.getCurrentLocation()
+      .then(({ latitude, longitude }) => weatherService.fetchDayWeather(latitude, longitude, new Date().toISOString().slice(0, 10)))
+      .then(setWeather)
+      .catch((error) => console.warn("Live weather unavailable; using fallback forecast", error));
+  }, [setWeather]);
 
   useEffect(() => {
     if (!supabase) return;

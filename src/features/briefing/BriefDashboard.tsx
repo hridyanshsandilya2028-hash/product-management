@@ -4,7 +4,7 @@ import { Card } from "../../components/ui/Card";
 import { ContingencyCard } from "./ContingencyCard";
 
 export function BriefDashboard() {
-  const { briefing, mode } = useAppStore();
+  const { briefing, mode, weather, setEnergy } = useAppStore();
 
   function handleVoiceBrief() {
     const speechWindow = typeof window !== "undefined" ? window : undefined;
@@ -52,7 +52,13 @@ export function BriefDashboard() {
           <Gauge value={briefing.riskScore} label="DAY RISK" />
           <div className="risk-summary-copy">
             <p className="eyebrow">ENERGY CHECK</p>
-            <strong>{briefing.energy.toUpperCase()}</strong>
+            <div className="energy-picker" role="group" aria-label="Energy check-in">
+              {(["low", "normal", "high"] as const).map((energy) => (
+                <button key={energy} type="button" className={`button ${briefing.energy === energy ? "button-primary" : "button-secondary"}`} onClick={() => setEnergy(energy)}>
+                  {energy}
+                </button>
+              ))}
+            </div>
             <p className="muted">We’ll keep the important moments visible and help you adapt without adding noise.</p>
           </div>
         </div>
@@ -61,7 +67,7 @@ export function BriefDashboard() {
       <div className="brief-status-grid" aria-label="Day status">
         <div className="status-tile">
           <span className="status-tile-icon" aria-hidden="true">☀</span>
-          <span><strong>24°</strong><small>Clear now</small></span>
+          <span>          <strong>{weather.temperature}°</strong><small>{weather.conditions}</small></span>
         </div>
         <div className="status-tile">
           <span className="status-tile-icon" aria-hidden="true">⌁</span>

@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useAppStore } from "../../store/useAppStore";
 import { Card } from "../../components/ui/Card";
 import type { Situation } from "../../types";
+import { buildTaskPlan } from "../../engine/riskEngine";
 
 type PlanEntry = {
   id: string;
@@ -12,6 +13,7 @@ type PlanEntry = {
   end: string;
   location?: string;
   risks: Situation[];
+  taskPlan?: ReturnType<typeof buildTaskPlan>;
   note?: string;
 };
 
@@ -54,6 +56,7 @@ export function PlanPage() {
       end: event.end,
       location: event.location,
       risks: byEvent.get(event.id) ?? [],
+      taskPlan: buildTaskPlan(event),
       note: event.outdoor ? "Outdoor block" : "Indoor block",
     }));
 
@@ -134,6 +137,17 @@ export function PlanPage() {
                   </div>
 
                   {entry.note && <p className="muted timeline-note">{entry.note}</p>}
+
+                  {entry.taskPlan && (
+                    <div className="task-plan">
+                      <strong>To keep this task on track</strong>
+                      <ul className="prep-list">
+                        {entry.taskPlan.successSteps.map((step) => <li key={step}>{step}</li>)}
+                      </ul>
+                      <p className="eyebrow">IF IT SLIPS</p>
+                      <p className="muted">{entry.taskPlan.planA[0]} · Otherwise: {entry.taskPlan.planB[0]}</p>
+                    </div>
+                  )}
 
                   {isExpanded && riskCount > 0 && (
                     <div className="risk-stack" aria-live="polite">

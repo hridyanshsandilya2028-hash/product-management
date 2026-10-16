@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { defaultProfile } from "../data/mockProfiles";
 import { mockWeatherSnapshot } from "../data/mockWeather";
-import { calculateRiskScore, generateSituations } from "./riskEngine";
+import { buildTaskPlan, calculateRiskScore, generateSituations } from "./riskEngine";
 import type { CalendarEvent, WeatherSnapshot } from "../types";
 
 describe("risk engine", () => {
@@ -92,6 +92,13 @@ describe("risk engine", () => {
 
     const situations = generateSituations({ ...mockWeatherSnapshot, rainProbability: 0 }, events, defaultProfile, "normal", []);
     expect(situations.some((situation) => situation.id === "segment-travel-commute")).toBe(true);
+  });
+
+  it("creates a success checklist and fallback for every task type", () => {
+    const plan = buildTaskPlan({ id: "task", title: "Write proposal", start: "2026-10-13T09:00:00", end: "2026-10-13T10:00:00" });
+    expect(plan.successSteps).toHaveLength(2);
+    expect(plan.planA).toHaveLength(2);
+    expect(plan.planB).toHaveLength(2);
   });
 
   it("includes custom situations and computes a bounded risk score", () => {

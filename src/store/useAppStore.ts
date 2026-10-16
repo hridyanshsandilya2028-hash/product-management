@@ -2,15 +2,18 @@ import { create } from "zustand";
 import { defaultProfile } from "../data/mockProfiles";
 import { mockWeatherSnapshot } from "../data/mockWeather";
 import { buildRiskFromDay } from "../engine/riskEngine";
-import type { Contact, DayBriefing, Mode, Profile, Situation } from "../types";
+import type { Contact, DayBriefing, EnergyLevel, Mode, Profile, Situation, WeatherSnapshot } from "../types";
 
 interface AppStore {
   mode: Mode;
   profile: Profile;
   briefing: DayBriefing;
+  weather: WeatherSnapshot;
   setMode: (mode: Mode) => void;
   setProfile: (profile: Profile) => void;
   setBriefing: (briefing: DayBriefing) => void;
+  setEnergy: (energy: EnergyLevel) => void;
+  setWeather: (weather: WeatherSnapshot) => void;
   setRiskTolerance: (value: number) => void;
   updateContact: (id: string, contact: Contact) => void;
   addCustomSituation: (situation: Situation) => void;
@@ -32,6 +35,7 @@ export const useAppStore = create<AppStore>()((set) => ({
             a.likelihood * (a.impact === "high" ? 2.4 : a.impact === "medium" ? 1.6 : 1),
         ),
       },
+      weather: mockWeatherSnapshot,
       setMode: (mode) => {
         if (typeof document !== "undefined") {
           document.documentElement.dataset.theme = mode;
@@ -41,26 +45,36 @@ export const useAppStore = create<AppStore>()((set) => ({
           profile: { ...state.profile, mode },
         }));
       },
-      setProfile: (profile) => {
+      setProfile: (profile) => set((state) => {
         const personalized = buildRiskFromDay(
-          mockWeatherSnapshot,
+          state.weather,
           profile.dayEvents,
           profile,
           "normal",
           profile.customSituations,
         );
-        set({
+        return {
           profile,
           mode: profile.mode,
           briefing: {
-            date: new Date().toISOString().slice(0, 10),
+            date: state.weather.date,
             riskScore: personalized.riskScore,
             energy: "normal",
             situations: personalized.situations,
           },
-        });
-      },
+        };
+      }),
       setBriefing: (briefing) => set({ briefing }),
+      setEnergy: (energy) =>
+        set((state) => {
+          const personalized = buildRiskFromDay(state.weather, state.profile.dayEvents, state.profile, energy, state.profile.customSituations);
+          return { briefing: { ...state.briefing, energy, riskScore: personalized.riskScore, situations: personalized.situations } };
+        }),
+      setWeather: (weather) =>
+        set((state) => {
+          const personalized = buildRiskFromDay(weather, state.profile.dayEvents, state.profile, state.briefing.energy, state.profile.customSituations);
+          return { weather, briefing: { ...state.briefing, riskScore: personalized.riskScore, situations: personalized.situations } };
+        }),
       setRiskTolerance: (value) =>
         set((state) => ({ profile: { ...state.profile, riskTolerance: value } })),
       updateContact: (id, contact) =>

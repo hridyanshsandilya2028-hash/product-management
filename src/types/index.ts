@@ -47,6 +47,12 @@ export interface CalendarEvent {
   outdoor?: boolean;
 }
 
+export interface TaskPlan {
+  successSteps: string[];
+  planA: string[];
+  planB: string[];
+}
+
 export interface DebriefEntry {
   date: string;
   predicted: number;

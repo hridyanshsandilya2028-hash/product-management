@@ -1,5 +1,5 @@
 import { addMinutes, differenceInMinutes, parseISO } from "date-fns";
-import type { CalendarEvent, EnergyLevel, Level, Profile, Situation, WeatherSnapshot } from "../types";
+import type { CalendarEvent, EnergyLevel, Level, Profile, Situation, TaskPlan, WeatherSnapshot } from "../types";
 
 const impactWeights: Record<Level, number> = {
   low: 1,
@@ -21,6 +21,43 @@ function getEventStartHour(event: CalendarEvent): number {
 
 function eventText(event: CalendarEvent): string {
   return `${event.title} ${event.location ?? ""}`.toLowerCase();
+}
+
+export function buildTaskPlan(event: CalendarEvent): TaskPlan {
+  const text = eventText(event);
+  if (/(commute|travel|airport|train|flight|drive|transit|pickup|drop.?off)/.test(text)) {
+    return {
+      successSteps: ["Confirm route and arrival buffer", "Keep ticket, address, and charger ready"],
+      planA: ["Leave 20 minutes early and check traffic before departure", "Use the fastest route available"],
+      planB: ["Switch to transit, rideshare, or the alternate route", "Send your revised arrival time before leaving"],
+    };
+  }
+  if (/(exam|test|interview|presentation|pitch|review|deadline|submission)/.test(text)) {
+    return {
+      successSteps: ["Prepare the essential material first", "Set a stop time before the task begins"],
+      planA: ["Deliver the smallest complete version on time", "Keep the required files and notes together"],
+      planB: ["Submit the core result and label follow-up work", "Tell the recipient exactly what remains"],
+    };
+  }
+  if (/(meeting|standup|call|sync|client|appointment|consultation|doctor|dentist)/.test(text)) {
+    return {
+      successSteps: ["Choose one outcome for the block", "Bring the questions, documents, or details needed"],
+      planA: ["Set a five-minute stopping point", "Capture decisions before leaving"],
+      planB: ["Move open items to a follow-up", "Notify the next commitment if the block overruns"],
+    };
+  }
+  if (/(class|lecture|study|workout|practice|training|shift|work)/.test(text)) {
+    return {
+      successSteps: ["Define the one result that matters", "Set a midpoint reset if the block is long"],
+      planA: ["Start with the highest-value step", "Use the planned break before focus drops"],
+      planB: ["Shorten the lowest-value part", "Move unfinished work into the next available buffer"],
+    };
+  }
+  return {
+    successSteps: ["Define the next visible action", "Prepare the one item that could stop progress"],
+    planA: ["Start on time and protect the first focused block", "Check progress at the midpoint"],
+    planB: ["Reduce the task to its essential outcome", "Reschedule the nonessential remainder"],
+  };
 }
 
 function getThreshold(profile: Profile, energy: EnergyLevel): number {
