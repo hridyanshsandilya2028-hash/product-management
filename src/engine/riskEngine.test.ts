@@ -71,6 +71,29 @@ describe("risk engine", () => {
     expect(situations.some((situation) => situation.category === "safety")).toBe(true);
   });
 
+  it("curates a precise preparation risk for an interview segment", () => {
+    const events: CalendarEvent[] = [
+      { id: "interview", title: "Product interview", start: "2026-10-13T10:00:00", end: "2026-10-13T11:00:00", location: "Office" },
+    ];
+
+    const situations = generateSituations({ ...mockWeatherSnapshot, rainProbability: 0 }, events, defaultProfile, "normal", []);
+    const plan = situations.find((situation) => situation.id === "segment-prep-interview");
+    expect(plan?.title).toContain("last-minute preparation");
+    expect(plan?.planA).toEqual([
+      "Finish the essential preparation before this block",
+      "Keep the required files, notes, or materials together",
+    ]);
+  });
+
+  it("curates a travel buffer risk for a commute segment", () => {
+    const events: CalendarEvent[] = [
+      { id: "commute", title: "Morning commute", start: "2026-10-13T06:30:00", end: "2026-10-13T07:30:00", location: "Station" },
+    ];
+
+    const situations = generateSituations({ ...mockWeatherSnapshot, rainProbability: 0 }, events, defaultProfile, "normal", []);
+    expect(situations.some((situation) => situation.id === "segment-travel-commute")).toBe(true);
+  });
+
   it("includes custom situations and computes a bounded risk score", () => {
     const custom = [
       {

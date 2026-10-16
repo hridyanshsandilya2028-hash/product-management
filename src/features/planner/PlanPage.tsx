@@ -142,7 +142,7 @@ export function PlanPage() {
                           <span className={`status-dot status-${risk.impact}`} aria-hidden="true" />
                           <div>
                             <strong>{risk.title}</strong>
-                            <span>{risk.likelihood}% likelihood</span>
+                            <span>{risk.likelihood}% likelihood · {risk.category}</span>
                           </div>
                         </div>
                       ))}

@@ -32,7 +32,7 @@ export function DebriefPage() {
       </Card>
 
       <div className="debrief-grid">
-        {briefing.situations.map((situation) => (
+        {briefing.situations.length > 0 ? briefing.situations.map((situation) => (
           <Card key={situation.id} className="debrief-card">
             <div className="alert-row">
               <span className={`status-dot status-${situation.impact}`} aria-hidden="true" />
@@ -57,9 +57,15 @@ export function DebriefPage() {
             <div className="debrief-meta">
               <span>{situation.likelihood}% likelihood</span>
               <span>{situation.impact}</span>
+              {situation.relatedEventId && <span>Segment-specific</span>}
             </div>
           </Card>
-        ))}
+        )) : (
+          <Card className="detail-card">
+            <strong>No predictions to review.</strong>
+            <p className="muted">Add today&apos;s schedule and concerns to create precise, segment-level predictions.</p>
+          </Card>
+        )}
       </div>
 
       <Card className="detail-card">

@@ -19,6 +19,10 @@ function getEventStartHour(event: CalendarEvent): number {
   return parseISO(event.start).getHours();
 }
 
+function eventText(event: CalendarEvent): string {
+  return `${event.title} ${event.location ?? ""}`.toLowerCase();
+}
+
 function getThreshold(profile: Profile, energy: EnergyLevel): number {
   const toleranceBoost = (profile.riskTolerance - 0.5) * 32;
   const energyShift = energy === "low" ? -12 : energy === "high" ? 10 : 0;
@@ -169,6 +173,74 @@ function mergeCustomSituations(customSituations: Situation[] = []): Situation[] 
   }));
 }
 
+function buildSegmentRisk(event: CalendarEvent): Situation | null {
+  const text = eventText(event);
+  const durationMinutes = differenceInMinutes(parseISO(event.end), parseISO(event.start));
+  const triggerTime = event.start;
+
+  if (/(commute|travel|airport|train|flight|drive|transit|pickup|drop.?off)/.test(text)) {
+    return {
+      id: `segment-travel-${event.id}`,
+      title: `Travel delay could compress ${event.title}`,
+      category: "traffic",
+      likelihood: 74,
+      impact: "high",
+      triggerTime,
+      relatedEventId: event.id,
+      planA: ["Check the route 30 minutes before leaving", "Leave a 20-minute arrival buffer"],
+      planB: ["Switch to the fastest alternate route", "Send the revised arrival time before departure"],
+      status: "open",
+    };
+  }
+
+  if (/(exam|test|interview|presentation|pitch|review|deadline|submission)/.test(text)) {
+    return {
+      id: `segment-prep-${event.id}`,
+      title: `${event.title} may lose time to last-minute preparation`,
+      category: "schedule",
+      likelihood: 66,
+      impact: "high",
+      triggerTime,
+      relatedEventId: event.id,
+      planA: ["Finish the essential preparation before this block", "Keep the required files, notes, or materials together"],
+      planB: ["Use the shortest acceptable version", "Send a concise update if the full scope will not fit"],
+      status: "open",
+    };
+  }
+
+  if (/(meeting|standup|call|sync|client|appointment|consultation|doctor|dentist|interview)/.test(text)) {
+    return {
+      id: `segment-overrun-${event.id}`,
+      title: `${event.title} could run over and delay the next block`,
+      category: "schedule",
+      likelihood: 58,
+      impact: "medium",
+      triggerTime,
+      relatedEventId: event.id,
+      planA: ["Choose one outcome that must be completed", "Set a stopping point 5 minutes before the end"],
+      planB: ["Move open items to a follow-up", "Notify the next commitment if the block runs long"],
+      status: "open",
+    };
+  }
+
+  if (/(class|lecture|study|workout|practice|training|shift|work)/.test(text) && durationMinutes >= 90) {
+    return {
+      id: `segment-endurance-${event.id}`,
+      title: `${event.title} may lose focus before it ends`,
+      category: "energy",
+      likelihood: 62,
+      impact: "medium",
+      triggerTime,
+      relatedEventId: event.id,
+      planA: ["Set a midpoint reset and keep water nearby", "Define the one result that makes this block worthwhile"],
+      planB: ["Shorten the lowest-value part", "Move unfinished work into the next available buffer"],
+      status: "open",
+    };
+  }
+
+  return null;
+}
+
 export function generateSituations(
   weather: WeatherSnapshot,
   events: CalendarEvent[],
@@ -208,6 +280,11 @@ export function generateSituations(
     const longCommitmentRisk = buildLongCommitmentRisk(event);
     if (longCommitmentRisk && longCommitmentRisk.likelihood >= threshold) {
       situations.push(longCommitmentRisk);
+    }
+
+    const segmentRisk = buildSegmentRisk(event);
+    if (segmentRisk && segmentRisk.likelihood >= threshold) {
+      situations.push(segmentRisk);
     }
   });
 
