@@ -83,6 +83,34 @@ async function resolveLocation(value: string): Promise<string> {
   ].filter(Boolean).join(", ") || value;
 }
 
+async function fetchFeed(query: string): Promise<string> {
+  const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
+  const response = await fetch(feedUrl, {
+    headers: { Accept: "application/rss+xml, application/xml, text/xml" },
+  });
+  if (!response.ok) {
+    throw new Error(`News provider returned ${response.status}.`);
+  }
+  return response.text();
+}
+
+function parseSignals(xml: string): NewsItem[] {
+  return (xml.match(/<item>[\s\S]*?<\/item>/gi) ?? [])
+    .slice(0, 8)
+    .map((item) => {
+      const title = readTag(item, "title");
+      const summary = readTag(item, "description");
+      return {
+        title,
+        summary: summary || "Recent headline relevant to your day.",
+        source: readTag(item, "source") || "Google News",
+        publishedAt: readTag(item, "pubDate") || new Date().toISOString(),
+        ...classify(title, summary),
+      };
+    })
+    .filter((signal) => signal.title.length > 0);
+}
+
 export default async function handler(request: Request, response: Response) {
   if (request.method !== "POST") {
     response.status(405).json({ error: "Use POST for news queries." });
@@ -93,35 +121,18 @@ export default async function handler(request: Request, response: Response) {
 
   try {
     const location = body.location ? await resolveLocation(body.location) : "";
-    const query = [
-      location && `"${location}"`,
-      body.query,
-      "traffic transit weather closure alert disruption",
-    ].filter(Boolean).join(" ").trim() || "local traffic transit weather disruptions";
-    const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
-    const feedResponse = await fetch(feedUrl, {
-      headers: { Accept: "application/rss+xml, application/xml, text/xml" },
-    });
-    if (!feedResponse.ok) {
-      response.status(502).json({ error: `News provider returned ${feedResponse.status}.` });
-      return;
+    const localQuery = location
+      ? `"${location}" (traffic OR transit OR weather OR closure OR alert OR disruption)`
+      : "local traffic transit weather closure alert disruption";
+    let signals = parseSignals(await fetchFeed(localQuery));
+
+    if (signals.length === 0 && location) {
+      signals = parseSignals(await fetchFeed(`"${location}"`));
     }
 
-    const xml = await feedResponse.text();
-    const signals: NewsItem[] = (xml.match(/<item>[\s\S]*?<\/item>/gi) ?? [])
-      .slice(0, 8)
-      .map((item) => {
-        const title = readTag(item, "title");
-        const summary = readTag(item, "description");
-        return {
-          title,
-          summary: summary || "Recent headline relevant to your day.",
-          source: readTag(item, "source") || "Google News",
-          publishedAt: readTag(item, "pubDate") || new Date().toISOString(),
-          ...classify(title, summary),
-        };
-      })
-      .filter((signal) => signal.title.length > 0);
+    if (signals.length === 0 && body.query) {
+      signals = parseSignals(await fetchFeed(body.query));
+    }
 
     response.status(200).json({ signals });
   } catch {
