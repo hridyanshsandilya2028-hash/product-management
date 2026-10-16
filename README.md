@@ -45,6 +45,7 @@ src/
 - App state is intentionally reset on each browser session and sign-out; durable profile preferences are stored per user in Supabase.
 - The app supports two theme variants, `vigilante` and `shadow`, via `data-theme` on the root HTML element.
 - Mobile-first styling targets narrow screens while remaining usable on larger desktop layouts.
+- WhatsApp and news providers are isolated behind client-safe service interfaces. Provider secrets must stay in a server-side Supabase Edge Function.
 - Supabase is configured through `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. The app remains usable in mock/local mode when these values are absent.
 
 ## Supabase setup
@@ -54,9 +55,17 @@ Create a `.env.local` file from the following template:
 ```bash
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+VITE_NEWS_FUNCTION_URL=https://your-project.supabase.co/functions/v1/news-brief
+VITE_WHATSAPP_FUNCTION_URL=https://your-project.supabase.co/functions/v1/send-whatsapp
 ```
 
 The client is intentionally limited to the browser-safe publishable key. Do not commit service-role keys or other secrets. Run `supabase/schema.sql` in the Supabase SQL editor to create the profile table and row-level security policies. The app uses Supabase email/password authentication, creates or loads the signed-in user's profile, and provides an explicit sign-out action that clears the in-memory workspace. Supabase auth sessions are not persisted in localStorage, so a new browser use starts at the vibrant sign-in screen.
+
+### WhatsApp and news updates
+
+Users can optionally provide an international-format mobile number and explicitly opt in under Settings → WhatsApp updates. The browser never calls Meta directly. `VITE_WHATSAPP_FUNCTION_URL` must point to a server-side function that uses the Meta WhatsApp Cloud API, a verified sender, and an approved template for proactive messages. `VITE_NEWS_FUNCTION_URL` points to a server-side adapter for the selected CiteWire MCP/news service. Both integrations fail closed when their function URL is not configured.
+
+The Meta access token, phone-number ID, verification token, CiteWire credentials, and any scheduled-job secret belong only in Supabase/Vercel server-side environment variables. Do not place them in `VITE_*` variables or commit them.
 
 For immediate login after account creation, disable **Confirm email** in Supabase Dashboard → Authentication → Providers → Email. If confirmation remains enabled, Supabase will require the user to verify the address before the first login.
 

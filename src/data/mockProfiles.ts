@@ -15,4 +15,6 @@ export const defaultProfile: Profile = {
   riskTolerance: 0.7,
   backupContacts: defaultContacts,
   customSituations: [],
+  whatsappPhone: "",
+  whatsappOptIn: false,
 };

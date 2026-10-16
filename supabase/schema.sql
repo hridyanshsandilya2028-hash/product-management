@@ -9,6 +9,8 @@ create table if not exists public.profiles (
   risk_tolerance numeric not null default 0.7 check (risk_tolerance between 0.1 and 1),
   backup_contacts jsonb not null default '[]'::jsonb,
   custom_situations jsonb not null default '[]'::jsonb,
+  whatsapp_phone text not null default '',
+  whatsapp_opt_in boolean not null default false,
   updated_at timestamptz not null default now()
 );
 
@@ -17,6 +19,8 @@ alter table public.profiles add column if not exists age_group text not null def
 alter table public.profiles add column if not exists day_description text not null default '';
 alter table public.profiles add column if not exists day_priorities jsonb not null default '[]'::jsonb;
 alter table public.profiles add column if not exists day_events jsonb not null default '[]'::jsonb;
+alter table public.profiles add column if not exists whatsapp_phone text not null default '';
+alter table public.profiles add column if not exists whatsapp_opt_in boolean not null default false;
 
 alter table public.profiles enable row level security;
 

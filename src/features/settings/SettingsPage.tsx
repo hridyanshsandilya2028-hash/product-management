@@ -9,7 +9,7 @@ import { useAppStore } from "../../store/useAppStore";
 import type { Contact } from "../../types";
 
 export function SettingsPage() {
-  const { mode, profile, setMode, setRiskTolerance, updateContact, addCustomSituation } = useAppStore();
+  const { mode, profile, setMode, setRiskTolerance, updateContact, addCustomSituation, setProfile } = useAppStore();
   const [notificationEnabled, setNotificationEnabled] = useState<boolean>(
     typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted",
   );
@@ -210,6 +210,32 @@ export function SettingsPage() {
 
         <p className="muted form-note" role="status" aria-live="polite">{locationStatus}</p>
         <Button type="button" variant="ghost" onClick={handleShareLocation}>Share my location</Button>
+      </Card>
+
+      <Card className="settings-card">
+        <div className="plan-card-header">
+          <p className="eyebrow">WHATSAPP UPDATES</p>
+          <span className="muted">Optional</span>
+        </div>
+        <label className="setup-label" htmlFor="whatsapp-phone">Mobile number</label>
+        <input
+          id="whatsapp-phone"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          placeholder="+1 555 123 4567"
+          value={profile.whatsappPhone}
+          onChange={(event) => setProfile({ ...profile, whatsappPhone: event.target.value })}
+        />
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={profile.whatsappOptIn}
+            onChange={(event) => setProfile({ ...profile, whatsappOptIn: event.target.checked })}
+          />
+          I agree to receive timely Contingency Genius updates on WhatsApp.
+        </label>
+        <p className="muted form-note">Updates cover your schedule, weather, traffic, and relevant news. You can turn them off anytime.</p>
       </Card>
 
       <Card className="settings-card">

@@ -23,6 +23,8 @@ interface ProfileRow {
   risk_tolerance: number;
   backup_contacts: Profile["backupContacts"];
   custom_situations: Profile["customSituations"];
+  whatsapp_phone: string | null;
+  whatsapp_opt_in: boolean | null;
 }
 
 export async function getCurrentUserId() {
@@ -57,6 +59,8 @@ export async function saveProfile(userId: string, profile: Profile) {
     risk_tolerance: profile.riskTolerance,
     backup_contacts: profile.backupContacts,
     custom_situations: profile.customSituations,
+    whatsapp_phone: profile.whatsappPhone,
+    whatsapp_opt_in: profile.whatsappOptIn,
     updated_at: new Date().toISOString(),
   });
 
@@ -82,7 +86,7 @@ export async function loadCurrentUserProfile() {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("display_name, age_group, day_description, day_priorities, day_events, mode, risk_tolerance, backup_contacts, custom_situations")
+    .select("display_name, age_group, day_description, day_priorities, day_events, mode, risk_tolerance, backup_contacts, custom_situations, whatsapp_phone, whatsapp_opt_in")
     .eq("id", userId)
     .maybeSingle<ProfileRow>();
 
@@ -99,5 +103,7 @@ export async function loadCurrentUserProfile() {
     riskTolerance: data.risk_tolerance,
     backupContacts: data.backup_contacts,
     customSituations: data.custom_situations,
+    whatsappPhone: data.whatsapp_phone ?? defaultProfile.whatsappPhone,
+    whatsappOptIn: data.whatsapp_opt_in ?? defaultProfile.whatsappOptIn,
   } satisfies Profile);
 }

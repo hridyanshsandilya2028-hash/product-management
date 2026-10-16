@@ -86,4 +86,6 @@ export interface Profile {
   riskTolerance: number;
   backupContacts: Contact[];
   customSituations: Situation[];
+  whatsappPhone: string;
+  whatsappOptIn: boolean;
 }
