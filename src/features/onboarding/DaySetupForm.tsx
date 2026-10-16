@@ -77,7 +77,7 @@ export function DaySetupForm({ onSubmit }: { onSubmit: (setup: DaySetup) => void
           <div className="event-builder-row">
             <input aria-label="Event time" type="time" value={eventTime} onChange={(event) => setEventTime(event.target.value)} />
             <select aria-label="Event duration" value={eventDuration} onChange={(event) => setEventDuration(event.target.value)}>
-              <option value="30">30 min</option><option value="60">1 hour</option><option value="90">90 min</option><option value="120">2 hours</option>
+              <option value="30">30 min</option><option value="60">1 hour</option><option value="90">90 min</option><option value="120">2 hours</option><option value="240">4 hours</option><option value="360">6 hours</option><option value="480">8 hours</option><option value="720">12 hours</option><option value="1440">24 hours</option>
             </select>
           </div>
           <input aria-label="Event location" value={eventLocation} onChange={(event) => setEventLocation(event.target.value)} placeholder="Location (optional)" />

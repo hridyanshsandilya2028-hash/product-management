@@ -48,6 +48,19 @@ describe("risk engine", () => {
     expect(situations.some((situation) => situation.category === "battery")).toBe(true);
   });
 
+  it("creates a contingency plan for a commitment up to 24 hours", () => {
+    const weather: WeatherSnapshot = { ...mockWeatherSnapshot, rainProbability: 10 };
+    const events: CalendarEvent[] = [
+      { id: "full-day", title: "Full-day responsibility", start: "2026-10-13T08:00:00", end: "2026-10-14T08:00:00", outdoor: false },
+    ];
+
+    const situations = generateSituations(weather, events, defaultProfile, "normal", []);
+    const plan = situations.find((situation) => situation.id === "long-full-day");
+    expect(plan?.planA.length).toBeGreaterThan(0);
+    expect(plan?.planB.length).toBeGreaterThan(0);
+    expect(plan?.impact).toBe("high");
+  });
+
   it("flags after-dark outdoor travel beside sunset", () => {
     const weather: WeatherSnapshot = { ...mockWeatherSnapshot, rainProbability: 20, sunset: "2026-10-13T17:30:00" };
     const events: CalendarEvent[] = [

@@ -28,7 +28,7 @@ function formatTime(value: string): string {
 }
 
 export function PlanPage() {
-  const { briefing } = useAppStore();
+  const { briefing, profile } = useAppStore();
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
 
   const planEntries = useMemo<PlanEntry[]>(() => {
@@ -43,7 +43,7 @@ export function PlanPage() {
       byEvent.set(situation.relatedEventId, list);
     });
 
-    const events = [...mockCalendarEvents].sort(
+    const events = [...(profile.dayEvents.length > 0 ? profile.dayEvents : mockCalendarEvents)].sort(
       (a, b) => parseISO(a.start).getTime() - parseISO(b.start).getTime(),
     );
 
@@ -81,7 +81,7 @@ export function PlanPage() {
     return entries.sort(
       (a, b) => parseISO(a.start).getTime() - parseISO(b.start).getTime(),
     );
-  }, [briefing.situations]);
+  }, [briefing.situations, profile.dayEvents]);
 
   const toggleExpand = (id: string) => {
     setExpandedIds((current) => ({ ...current, [id]: !current[id] }));

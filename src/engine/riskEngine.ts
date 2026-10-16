@@ -121,6 +121,26 @@ function buildBatteryRisk(events: CalendarEvent[]): Situation | null {
   };
 }
 
+function buildLongCommitmentRisk(event: CalendarEvent): Situation | null {
+  const durationMinutes = differenceInMinutes(parseISO(event.end), parseISO(event.start));
+  if (durationMinutes < 240) {
+    return null;
+  }
+
+  return {
+    id: `long-${event.id}`,
+    title: `${event.title} may outlast your energy`,
+    category: "energy",
+    likelihood: durationMinutes >= 720 ? 84 : 68,
+    impact: durationMinutes >= 720 ? "high" : "medium",
+    triggerTime: event.start,
+    relatedEventId: event.id,
+    planA: ["Schedule a real food, water, and reset break before the midpoint", "Charge devices and keep the next essential step visible"],
+    planB: ["Split the commitment into smaller handoffs", "Move nonessential parts to another window and tell anyone affected"],
+    status: "open",
+  };
+}
+
 function buildNightTravelRisk(event: CalendarEvent, weather: WeatherSnapshot): Situation | null {
   const start = parseISO(event.start);
   const sunset = parseISO(weather.sunset);
@@ -183,6 +203,11 @@ export function generateSituations(
     const nightRisk = buildNightTravelRisk(event, weather);
     if (nightRisk && nightRisk.likelihood >= threshold) {
       situations.push(nightRisk);
+    }
+
+    const longCommitmentRisk = buildLongCommitmentRisk(event);
+    if (longCommitmentRisk && longCommitmentRisk.likelihood >= threshold) {
+      situations.push(longCommitmentRisk);
     }
   });
 
