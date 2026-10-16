@@ -1,6 +1,5 @@
 import { addMinutes, differenceInMinutes, format, parseISO } from "date-fns";
 import { useMemo, useState } from "react";
-import { mockCalendarEvents } from "../../data/mockEvents";
 import { useAppStore } from "../../store/useAppStore";
 import { Card } from "../../components/ui/Card";
 import type { Situation } from "../../types";
@@ -43,7 +42,7 @@ export function PlanPage() {
       byEvent.set(situation.relatedEventId, list);
     });
 
-    const events = [...(profile.dayEvents.length > 0 ? profile.dayEvents : mockCalendarEvents)].sort(
+    const events = [...profile.dayEvents].sort(
       (a, b) => parseISO(a.start).getTime() - parseISO(b.start).getTime(),
     );
 

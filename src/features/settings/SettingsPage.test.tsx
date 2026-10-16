@@ -8,6 +8,6 @@ describe("SettingsPage", () => {
 
     expect(screen.getByText(/settings/i)).toBeInTheDocument();
     expect(screen.getByText(/risk tolerance/i)).toBeInTheDocument();
-    expect(screen.getByText(/custom situations/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/custom situations/i).length).toBeGreaterThan(0);
   });
 });

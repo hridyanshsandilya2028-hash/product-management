@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import { defaultProfile } from "../data/mockProfiles";
-import { mockCalendarEvents } from "../data/mockEvents";
 import { mockWeatherSnapshot } from "../data/mockWeather";
 import { buildRiskFromDay } from "../engine/riskEngine";
 import type { Contact, DayBriefing, Mode, Profile, Situation } from "../types";
@@ -18,13 +17,7 @@ interface AppStore {
   markSituation: (id: string, status: Situation["status"]) => void;
 }
 
-const fallbackBriefing = buildRiskFromDay(
-  mockWeatherSnapshot,
-  mockCalendarEvents,
-  defaultProfile,
-  "normal",
-  defaultProfile.customSituations,
-);
+const fallbackBriefing = buildRiskFromDay(mockWeatherSnapshot, [], defaultProfile, "normal", []);
 
 export const useAppStore = create<AppStore>()((set) => ({
       mode: defaultProfile.mode,
@@ -49,10 +42,9 @@ export const useAppStore = create<AppStore>()((set) => ({
         }));
       },
       setProfile: (profile) => {
-        const dayEvents = profile.dayEvents.length > 0 ? profile.dayEvents : mockCalendarEvents;
         const personalized = buildRiskFromDay(
           mockWeatherSnapshot,
-          dayEvents,
+          profile.dayEvents,
           profile,
           "normal",
           profile.customSituations,

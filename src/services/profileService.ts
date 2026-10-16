@@ -2,6 +2,17 @@ import { supabase } from "./supabaseClient";
 import { defaultProfile } from "../data/mockProfiles";
 import type { Profile } from "../types";
 
+const seededSituationIds = new Set(["custom-1", "custom-2"]);
+const seededEventIds = new Set(["evt-1", "evt-2", "evt-3", "evt-4", "evt-5"]);
+
+function removeSeededExamples(profile: Profile): Profile {
+  return {
+    ...profile,
+    dayEvents: profile.dayEvents.filter((event) => !seededEventIds.has(event.id)),
+    customSituations: profile.customSituations.filter((situation) => !seededSituationIds.has(situation.id)),
+  };
+}
+
 interface ProfileRow {
   display_name: string | null;
   age_group: Profile["ageGroup"] | null;
@@ -78,7 +89,7 @@ export async function loadCurrentUserProfile() {
   if (error) throw new Error(`Unable to load profile: ${error.message}`);
   if (!data) return null;
 
-  return {
+  return removeSeededExamples({
     displayName: data.display_name ?? defaultProfile.displayName,
     ageGroup: data.age_group ?? defaultProfile.ageGroup,
     dayDescription: data.day_description ?? defaultProfile.dayDescription,
@@ -88,5 +99,5 @@ export async function loadCurrentUserProfile() {
     riskTolerance: data.risk_tolerance,
     backupContacts: data.backup_contacts,
     customSituations: data.custom_situations,
-  } satisfies Profile;
+  } satisfies Profile);
 }

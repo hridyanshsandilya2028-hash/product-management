@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { BriefDashboard } from "./BriefDashboard";
 
 describe("BriefDashboard", () => {
-  it("renders a risk summary and the top contingencies", () => {
+  it("renders a risk summary without sample contingencies for a new user", () => {
     render(
       <MemoryRouter>
         <BriefDashboard />
@@ -13,6 +13,6 @@ describe("BriefDashboard", () => {
 
     expect(screen.getByText(/day risk/i)).toBeInTheDocument();
     expect(screen.getByText(/contingencies/i)).toBeInTheDocument();
-    expect(screen.getAllByRole("link").length).toBeGreaterThan(0);
+    expect(screen.getByText(/no contingency plans are needed/i)).toBeInTheDocument();
   });
 });

@@ -11,6 +11,40 @@ import type { Situation } from "../../types";
 
 type Mode = "vigilante" | "shadow";
 
+function curateConcernPlan(concern: string): Pick<Situation, "planA" | "planB" | "likelihood" | "impact"> {
+  const normalized = concern.toLowerCase();
+  if (normalized.includes("rain") || normalized.includes("weather") || normalized.includes("storm")) {
+    return {
+      likelihood: 72,
+      impact: "medium",
+      planA: ["Check the forecast before the relevant block", "Pack a waterproof layer or move the activity indoors"],
+      planB: ["Delay the outdoor step", "Use the nearest covered route and notify anyone waiting"],
+    };
+  }
+  if (normalized.includes("traffic") || normalized.includes("commute") || normalized.includes("travel")) {
+    return {
+      likelihood: 76,
+      impact: "high",
+      planA: ["Leave a 20-minute travel buffer", "Check the route before departing"],
+      planB: ["Switch to the fastest available route", "Tell the next person your revised arrival time"],
+    };
+  }
+  if (normalized.includes("battery") || normalized.includes("charge") || normalized.includes("phone")) {
+    return {
+      likelihood: 68,
+      impact: "medium",
+      planA: ["Charge before the busiest part of the day", "Keep a cable or power bank within reach"],
+      planB: ["Enable low-power mode", "Reserve the phone for essential calls and navigation"],
+    };
+  }
+  return {
+    likelihood: 62,
+    impact: "medium",
+    planA: [`Define the first small fallback step for ${normalized}`, "Protect a short buffer before the affected commitment"],
+    planB: ["Reduce the nonessential part of the task", "Communicate early and reschedule what can wait"],
+  };
+}
+
 export function ModePicker() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<Mode>("vigilante");
@@ -27,14 +61,12 @@ export function ModePicker() {
       .map((concern, index): Situation | null => {
         const title = concern.trim();
         if (!title) return null;
+        const curatedPlan = curateConcernPlan(title);
         return {
           id: `concern-${Date.now()}-${index}`,
           title: `Possible issue: ${title}`,
           category: "custom",
-          likelihood: 62,
-          impact: "medium",
-          planA: [`Prepare a simple fallback for ${title.toLowerCase()}`, "Leave a little extra time before the next commitment"],
-          planB: ["Reduce the scope of the task", "Communicate early and move the nonessential part"],
+          ...curatedPlan,
           status: "open",
         };
       })
