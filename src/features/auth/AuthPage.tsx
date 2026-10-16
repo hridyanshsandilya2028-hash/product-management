@@ -35,23 +35,9 @@ export function AuthPage() {
     }
 
     if (isSignUp && !result.data.session) {
-      setStatus("Check your inbox to confirm your email, then come back to sign in.");
+      setIsSignUp(false);
+      setStatus("Account created. Sign in below to continue.");
       return;
-    }
-
-    if (!isSignUp && result.data.user) {
-      const { error: welcomeError } = await supabase.functions.invoke("welcome-login", {
-        body: {
-          email: result.data.user.email,
-          displayName: result.data.user.user_metadata?.display_name,
-        },
-      });
-
-      if (welcomeError) {
-        setStatus("Signed in. We could not send the welcome email this time.");
-        window.setTimeout(() => navigate("/onboarding", { replace: true }), 1200);
-        return;
-      }
     }
 
     navigate("/onboarding", { replace: true });
