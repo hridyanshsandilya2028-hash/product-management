@@ -22,7 +22,10 @@ describe("CiteWireNewsService", () => {
 
     const signals = await new CiteWireNewsService().getRelevantSignals("morning commute");
 
-    expect(fetchMock).toHaveBeenCalledWith("/api/news", expect.objectContaining({ method: "POST" }));
+    expect(fetchMock).toHaveBeenCalledWith("/api/news", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ query: "morning commute", location: undefined }),
+    }));
     expect(signals[0].title).toBe("Transit alert");
   });
 });

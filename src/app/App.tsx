@@ -16,6 +16,7 @@ import { useAppStore } from "../store/useAppStore";
 import { locationService } from "../services/locationService";
 import { weatherService } from "../services/weatherService";
 import { newsService } from "../services/newsService";
+import type { LocationCoordinates } from "../types";
 
 function Placeholder({ title }: { title: string }) {
   return (
@@ -40,6 +41,7 @@ function SessionRoutes() {
   const navigate = useNavigate();
   const [sessionReady, setSessionReady] = useState(!supabase);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [coordinates, setCoordinates] = useState<LocationCoordinates | null>(null);
   const setProfile = useAppStore((state) => state.setProfile);
   const setWeather = useAppStore((state) => state.setWeather);
   const setNewsSignals = useAppStore((state) => state.setNewsSignals);
@@ -47,7 +49,14 @@ function SessionRoutes() {
 
   useEffect(() => {
     void locationService.getCurrentLocation()
-      .then(({ latitude, longitude }) => weatherService.fetchDayWeather(latitude, longitude, new Date().toISOString().slice(0, 10)))
+      .then((currentLocation) => {
+        setCoordinates(currentLocation);
+        return weatherService.fetchDayWeather(
+          currentLocation.latitude,
+          currentLocation.longitude,
+          new Date().toISOString().slice(0, 10),
+        );
+      })
       .then(setWeather)
       .catch((error) => console.warn("Live weather unavailable; using fallback forecast", error));
   }, [setWeather]);
@@ -56,10 +65,13 @@ function SessionRoutes() {
     const query = [profile.dayDescription, ...profile.dayPriorities, ...profile.dayEvents.map((event) => event.title)]
       .filter(Boolean)
       .join(", ") || "weather traffic travel disruptions";
-    void newsService.getRelevantSignals(query)
+    const locationQuery = coordinates
+      ? `${coordinates.latitude},${coordinates.longitude}`
+      : undefined;
+    void newsService.getRelevantSignals(query, locationQuery)
       .then(setNewsSignals)
       .catch((error) => console.warn("News updates unavailable; continuing without news signals", error));
-  }, [profile.dayDescription, profile.dayPriorities, profile.dayEvents, setNewsSignals]);
+  }, [coordinates, profile.dayDescription, profile.dayPriorities, profile.dayEvents, setNewsSignals]);
 
   useEffect(() => {
     if (!supabase) return;

@@ -17,6 +17,15 @@ type NewsItem = {
   category: "weather" | "traffic" | "safety" | "regional" | "general";
 };
 
+type LocationAddress = {
+  city?: string;
+  town?: string;
+  village?: string;
+  county?: string;
+  state?: string;
+  country?: string;
+};
+
 function decodeXml(value: string): string {
   return value
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
@@ -51,6 +60,29 @@ function classify(title: string, summary: string): Pick<NewsItem, "category" | "
   return { category: "general", severity: "low" };
 }
 
+async function resolveLocation(value: string): Promise<string> {
+  const [latitude, longitude] = value.split(",").map(Number);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return value;
+  }
+
+  const response = await fetch(
+    `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=10`,
+    { headers: { Accept: "application/json", "User-Agent": "ContingencyGenius/1.0" } },
+  );
+  if (!response.ok) {
+    return value;
+  }
+
+  const payload = await response.json() as { address?: LocationAddress };
+  const address = payload.address ?? {};
+  return [
+    address.city ?? address.town ?? address.village ?? address.county,
+    address.state,
+    address.country,
+  ].filter(Boolean).join(", ") || value;
+}
+
 export default async function handler(request: Request, response: Response) {
   if (request.method !== "POST") {
     response.status(405).json({ error: "Use POST for news queries." });
@@ -58,10 +90,15 @@ export default async function handler(request: Request, response: Response) {
   }
 
   const body = (request.body ?? {}) as { query?: string; location?: string };
-  const query = [body.query, body.location].filter(Boolean).join(" ").trim() || "world news travel weather disruptions";
-  const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
 
   try {
+    const location = body.location ? await resolveLocation(body.location) : "";
+    const query = [
+      location && `"${location}"`,
+      body.query,
+      "traffic transit weather closure alert disruption",
+    ].filter(Boolean).join(" ").trim() || "local traffic transit weather disruptions";
+    const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
     const feedResponse = await fetch(feedUrl, {
       headers: { Accept: "application/rss+xml, application/xml, text/xml" },
     });
