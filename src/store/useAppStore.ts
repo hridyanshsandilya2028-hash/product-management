@@ -11,6 +11,7 @@ interface AppStore {
   briefing: DayBriefing;
   setMode: (mode: Mode) => void;
   setProfile: (profile: Profile) => void;
+  setBriefing: (briefing: DayBriefing) => void;
   setRiskTolerance: (value: number) => void;
   updateContact: (id: string, contact: Contact) => void;
   addCustomSituation: (situation: Situation) => void;
@@ -47,7 +48,27 @@ export const useAppStore = create<AppStore>()((set) => ({
           profile: { ...state.profile, mode },
         }));
       },
-      setProfile: (profile) => set({ profile, mode: profile.mode }),
+      setProfile: (profile) => {
+        const dayEvents = profile.dayEvents.length > 0 ? profile.dayEvents : mockCalendarEvents;
+        const personalized = buildRiskFromDay(
+          mockWeatherSnapshot,
+          dayEvents,
+          profile,
+          "normal",
+          profile.customSituations,
+        );
+        set({
+          profile,
+          mode: profile.mode,
+          briefing: {
+            date: new Date().toISOString().slice(0, 10),
+            riskScore: personalized.riskScore,
+            energy: "normal",
+            situations: personalized.situations,
+          },
+        });
+      },
+      setBriefing: (briefing) => set({ briefing }),
       setRiskTolerance: (value) =>
         set((state) => ({ profile: { ...state.profile, riskTolerance: value } })),
       updateContact: (id, contact) =>

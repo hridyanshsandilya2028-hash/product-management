@@ -1,6 +1,7 @@
 export type Mode = "vigilante" | "shadow";
 export type Level = "low" | "medium" | "high";
 export type EnergyLevel = "low" | "normal" | "high";
+export type AgeGroup = "under-18" | "18-24" | "25-44" | "45-64" | "65-plus" | "prefer-not-to-say";
 export type SituationCategory =
   | "weather"
   | "traffic"
@@ -71,6 +72,10 @@ export interface LocationCoordinates {
 
 export interface Profile {
   displayName: string;
+  ageGroup: AgeGroup;
+  dayDescription: string;
+  dayPriorities: string[];
+  dayEvents: CalendarEvent[];
   mode: Mode;
   riskTolerance: number;
   backupContacts: Contact[];

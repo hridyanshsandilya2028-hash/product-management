@@ -1,6 +1,10 @@
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   display_name text not null default 'Ready when you are',
+  age_group text not null default 'prefer-not-to-say',
+  day_description text not null default '',
+  day_priorities jsonb not null default '[]'::jsonb,
+  day_events jsonb not null default '[]'::jsonb,
   mode text not null default 'vigilante' check (mode in ('vigilante', 'shadow')),
   risk_tolerance numeric not null default 0.7 check (risk_tolerance between 0.1 and 1),
   backup_contacts jsonb not null default '[]'::jsonb,
@@ -9,6 +13,10 @@ create table if not exists public.profiles (
 );
 
 alter table public.profiles add column if not exists display_name text not null default 'Ready when you are';
+alter table public.profiles add column if not exists age_group text not null default 'prefer-not-to-say';
+alter table public.profiles add column if not exists day_description text not null default '';
+alter table public.profiles add column if not exists day_priorities jsonb not null default '[]'::jsonb;
+alter table public.profiles add column if not exists day_events jsonb not null default '[]'::jsonb;
 
 alter table public.profiles enable row level security;
 

@@ -4,6 +4,10 @@ import type { Profile } from "../types";
 
 interface ProfileRow {
   display_name: string | null;
+  age_group: Profile["ageGroup"] | null;
+  day_description: string | null;
+  day_priorities: string[] | null;
+  day_events: Profile["dayEvents"] | null;
   mode: Profile["mode"];
   risk_tolerance: number;
   backup_contacts: Profile["backupContacts"];
@@ -17,6 +21,9 @@ export async function getCurrentUserId() {
 
   const { data, error } = await supabase.auth.getUser();
   if (error) {
+    if (error.message.toLowerCase().includes("session missing")) {
+      return null;
+    }
     throw new Error(`Unable to check Supabase session: ${error.message}`);
   }
 
@@ -31,6 +38,10 @@ export async function saveProfile(userId: string, profile: Profile) {
   const { error } = await supabase.from("profiles").upsert({
     id: userId,
     display_name: profile.displayName,
+    age_group: profile.ageGroup,
+    day_description: profile.dayDescription,
+    day_priorities: profile.dayPriorities,
+    day_events: profile.dayEvents,
     mode: profile.mode,
     risk_tolerance: profile.riskTolerance,
     backup_contacts: profile.backupContacts,
@@ -60,7 +71,7 @@ export async function loadCurrentUserProfile() {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("display_name, mode, risk_tolerance, backup_contacts, custom_situations")
+    .select("display_name, age_group, day_description, day_priorities, day_events, mode, risk_tolerance, backup_contacts, custom_situations")
     .eq("id", userId)
     .maybeSingle<ProfileRow>();
 
@@ -69,6 +80,10 @@ export async function loadCurrentUserProfile() {
 
   return {
     displayName: data.display_name ?? defaultProfile.displayName,
+    ageGroup: data.age_group ?? defaultProfile.ageGroup,
+    dayDescription: data.day_description ?? defaultProfile.dayDescription,
+    dayPriorities: data.day_priorities ?? defaultProfile.dayPriorities,
+    dayEvents: data.day_events ?? defaultProfile.dayEvents,
     mode: data.mode,
     riskTolerance: data.risk_tolerance,
     backupContacts: data.backup_contacts,

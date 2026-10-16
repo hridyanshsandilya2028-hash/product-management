@@ -30,6 +30,10 @@ const defaultCustomSituations: Situation[] = [
 
 export const defaultProfile: Profile = {
   displayName: "Ready when you are",
+  ageGroup: "prefer-not-to-say",
+  dayDescription: "",
+  dayPriorities: [],
+  dayEvents: [],
   mode: "vigilante",
   riskTolerance: 0.7,
   backupContacts: defaultContacts,

@@ -64,7 +64,7 @@ For immediate login after account creation, disable **Confirm email** in Supabas
 ## Route flow
 
 - `/` sign-in/sign-up screen
-- `/onboarding` first-run mode selection for the current session
+- `/onboarding` personalized mode and day planning flow for the current session
 - `/brief` dashboard and daily risk summary
 - `/brief/:id` contingency detail view
 - `/plan` day planner with buffers and risk flags
@@ -72,6 +72,10 @@ For immediate login after account creation, disable **Confirm email** in Supabas
 - `/debrief` nightly evaluation and carry-forward logic
 - `/warroom` seven-day pattern analysis
 - `/settings` mode, risk tolerance, contacts, permissions, and custom situations
+
+## Personalized day planning
+
+After sign-in, each user can build a private plan for the day from onboarding. The flow asks for an age group, a plain-language description of the day, priorities, possible concerns, and timed commitments. Those commitments feed the deterministic risk engine as calendar events; concerns become custom contingency situations with Plan A and Plan B steps. The resulting profile and day plan are stored in that user's Supabase `profiles` row and can be rebuilt by visiting `/onboarding` again.
 
 ## Validation
 

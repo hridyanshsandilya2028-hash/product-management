@@ -1,21 +1,61 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Pill } from "../../components/ui/Pill";
+import { useAppStore } from "../../store/useAppStore";
+import { saveCurrentUserProfile } from "../../services/profileService";
+import { buildRiskFromDay } from "../../engine/riskEngine";
+import { mockWeatherSnapshot } from "../../data/mockWeather";
+import { DaySetupForm, type DaySetup } from "./DaySetupForm";
+import type { Situation } from "../../types";
 
 type Mode = "vigilante" | "shadow";
 
 export function ModePicker() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<Mode>("vigilante");
+  const { profile, setProfile, setBriefing } = useAppStore();
 
   function chooseMode(nextMode: Mode) {
     setMode(nextMode);
     document.documentElement.dataset.theme = nextMode;
   }
 
-  function enterApp() {
+  async function enterApp(setup: DaySetup) {
+    const concernSituations = setup.concerns
+      .split(",")
+      .map((concern, index): Situation | null => {
+        const title = concern.trim();
+        if (!title) return null;
+        return {
+          id: `concern-${Date.now()}-${index}`,
+          title: `Possible issue: ${title}`,
+          category: "custom",
+          likelihood: 62,
+          impact: "medium",
+          planA: [`Prepare a simple fallback for ${title.toLowerCase()}`, "Leave a little extra time before the next commitment"],
+          planB: ["Reduce the scope of the task", "Communicate early and move the nonessential part"],
+          status: "open",
+        };
+      })
+      .filter((item): item is Situation => Boolean(item));
+    const nextProfile = {
+      ...profile,
+      mode,
+      ageGroup: setup.ageGroup,
+      dayDescription: setup.dayDescription.trim(),
+      dayPriorities: setup.priorities.split(",").map((item) => item.trim()).filter(Boolean),
+      dayEvents: setup.events,
+      customSituations: concernSituations,
+    };
+    const briefing = buildRiskFromDay(mockWeatherSnapshot, setup.events, nextProfile, "normal", concernSituations);
+    setProfile(nextProfile);
+    setBriefing({ date: new Date().toISOString().slice(0, 10), riskScore: briefing.riskScore, energy: "normal", situations: briefing.situations });
+    try {
+      await saveCurrentUserProfile(nextProfile);
+    } catch (error) {
+      console.error("Unable to save personalized day plan", error);
+    }
     navigate("/brief");
   }
 
@@ -26,9 +66,7 @@ export function ModePicker() {
       </div>
       <p className="eyebrow">CONTINGENCY GENIUS / 01</p>
       <h1>Stay ready<br /><em>for anything.</em></h1>
-      <p className="onboarding-copy">
-        A quiet layer of preparation for the moments your calendar cannot predict.
-      </p>
+      <p className="onboarding-copy">Tell us what today holds. We’ll spot the pressure points and build useful Plan A and Plan B options around your real day.</p>
       <div className="mode-list" role="radiogroup" aria-label="Choose your operating mode">
         <ModeCard
           mode="vigilante"
@@ -45,10 +83,8 @@ export function ModePicker() {
           onSelect={() => chooseMode("shadow")}
         />
       </div>
-      <Button onClick={enterApp} className="onboarding-cta">
-        Enter your day <span aria-hidden="true">↗</span>
-      </Button>
-      <p className="onboarding-footnote">You can change this anytime in settings.</p>
+      <DaySetupForm onSubmit={(setup) => void enterApp(setup)} />
+      <p className="onboarding-footnote">Your day plan is private to your account and can be rebuilt anytime.</p>
     </main>
   );
 }
