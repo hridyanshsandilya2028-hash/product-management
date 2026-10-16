@@ -5,7 +5,7 @@ export interface NewsService {
   getRelevantSignals: (query: string, location?: string) => Promise<NewsSignal[]>;
 }
 
-const newsFunctionUrl = import.meta.env.VITE_NEWS_FUNCTION_URL as string | undefined;
+const newsFunctionUrl = (import.meta.env.VITE_NEWS_FUNCTION_URL as string | undefined) ?? "/api/news";
 
 export class CiteWireNewsService implements NewsService {
   async getRelevantSignals(query: string, location?: string): Promise<NewsSignal[]> {

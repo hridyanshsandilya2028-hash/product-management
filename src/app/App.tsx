@@ -53,11 +53,9 @@ function SessionRoutes() {
   }, [setWeather]);
 
   useEffect(() => {
-    const query = [profile.dayDescription, ...profile.dayPriorities, ...profile.dayEvents.map((event) => event.title)].filter(Boolean).join(", ");
-    if (!query) {
-      setNewsSignals([]);
-      return;
-    }
+    const query = [profile.dayDescription, ...profile.dayPriorities, ...profile.dayEvents.map((event) => event.title)]
+      .filter(Boolean)
+      .join(", ") || "weather traffic travel disruptions";
     void newsService.getRelevantSignals(query)
       .then(setNewsSignals)
       .catch((error) => console.warn("News updates unavailable; continuing without news signals", error));
