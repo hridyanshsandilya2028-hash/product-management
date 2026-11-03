@@ -27,6 +27,7 @@ type RealmState = {
   sitting: string | null
   starOpen: string | null
   memoryOpen: number | null
+  memoryAlbum: 'good-days' | 'throwbacks'
   compass: boolean
   set: (patch: Partial<RealmState>) => void
 }
@@ -50,6 +51,7 @@ const useRealm = create<RealmState>((set) => ({
   sitting: null,
   starOpen: null,
   memoryOpen: null,
+  memoryAlbum: 'good-days',
   compass: false,
   set: (patch) => set(patch),
 }))
@@ -940,6 +942,7 @@ function StoryThread() {
 }
 
 const albumImages = Array.from({ length: 14 }, (_, index) => `/album/good-day-${String(index + 1).padStart(2, '0')}.jpg`)
+const throwbackImages = Array.from({ length: 41 }, (_, index) => `/throwbacks/throwback-${String(index + 1).padStart(2, '0')}.jpg`)
 
 function memoryPosition(index: number): [number, number, number] {
   const positions: [number, number, number][] = [
@@ -963,6 +966,20 @@ function memoryPosition(index: number): [number, number, number] {
 
 function memoryRotation(index: number): number {
   const [x, , z] = memoryPosition(index)
+  return Math.atan2(-x, -z)
+}
+
+function throwbackPosition(index: number): [number, number, number] {
+  const lane = index % 4
+  const row = Math.floor(index / 4)
+  const side = lane % 2 === 0 ? -1 : 1
+  const depth = 11 - row * 2.45
+  const spread = lane < 2 ? 7.3 : 10.1
+  return [side * spread, 2.25 + (lane % 2) * 0.24, depth]
+}
+
+function throwbackRotation(index: number): number {
+  const [x, , z] = throwbackPosition(index)
   return Math.atan2(-x, -z)
 }
 
@@ -1011,6 +1028,48 @@ function MemoryGallery({ onOpen }: { onOpen: (index: number) => void }) {
   )
 }
 
+function ThrowbackGallery({ onOpen }: { onOpen: (index: number) => void }) {
+  const textures = useLoader(THREE.TextureLoader, throwbackImages)
+  return (
+    <group>
+      <group position={[0, 3.9, 12.8]}>
+        <mesh rotation-y={Math.PI}>
+          <torusGeometry args={[1.5, 0.03, 8, 48]} />
+          <meshStandardMaterial color="#6f7d90" emissive="#34475c" emissiveIntensity={2} />
+        </mesh>
+        <Text position={[0, 0, 0.08]} rotation-y={Math.PI} fontSize={0.25} color="#d3d5dc" anchorX="center" anchorY="middle">
+          THROWBACK ARCHIVE
+        </Text>
+        <Text position={[0, -0.38, 0.08]} rotation-y={Math.PI} fontSize={0.11} color="#73e6df" anchorX="center" anchorY="middle">
+          BEFORE THE FOG
+        </Text>
+      </group>
+      {textures.map((texture, index) => {
+        const [x, y, z] = throwbackPosition(index)
+        const landscape = index === 0 || index === 10 || index === 17 || index === 18 || index === 19 || index === 21
+        const width = landscape ? 1.5 : 1.08
+        const height = landscape ? 0.86 : 1.44
+        return (
+          <group key={throwbackImages[index]} position={[x, y, z]} rotation={[0, throwbackRotation(index), 0]} onClick={(event) => { event.stopPropagation(); onOpen(index) }}>
+            <mesh position={[0, 0, -0.05]}>
+              <planeGeometry args={[width + 0.14, height + 0.14]} />
+              <meshStandardMaterial color="#68768b" metalness={0.62} roughness={0.4} emissive="#27384c" emissiveIntensity={0.7} />
+            </mesh>
+            <mesh position={[0, 0, 0.02]}>
+              <planeGeometry args={[width, height]} />
+              <meshBasicMaterial map={texture} toneMapped={false} />
+            </mesh>
+            <mesh position={[0, -height / 2 - 0.14, 0.04]}>
+              <boxGeometry args={[width * 0.65, 0.025, 0.02]} />
+              <meshStandardMaterial color="#73e6df" emissive="#73e6df" emissiveIntensity={1.8} />
+            </mesh>
+          </group>
+        )
+      })}
+    </group>
+  )
+}
+
 function Scene({ onChairSelect, onStarSelect }: { onChairSelect: (district: District) => void; onStarSelect: (district: District) => void }) {
   const realm = useRealm()
   const chairs = districts.slice(0, 10).map((district, index) => ({
@@ -1048,7 +1107,8 @@ function Scene({ onChairSelect, onStarSelect }: { onChairSelect: (district: Dist
         })}
         <CompassWisp target={unreadStar ? new THREE.Vector3(...unreadStar.position) : null} visible={realm.compass} />
         <StoryThread />
-        <MemoryGallery onOpen={(index) => realm.set({ memoryOpen: index })} />
+        <MemoryGallery onOpen={(index) => realm.set({ memoryOpen: index, memoryAlbum: 'good-days' })} />
+        <ThrowbackGallery onOpen={(index) => realm.set({ memoryOpen: index, memoryAlbum: 'throwbacks' })} />
         <Float speed={0.3} rotationIntensity={0.15} floatIntensity={0.5}>
           <mesh position={[0, 5.2, -10.5]}><torusKnotGeometry args={[1.3, 0.14, 128, 16, 2, 3]} /><meshStandardMaterial color="#b78d5a" emissive="#80521f" emissiveIntensity={3} metalness={0.75} roughness={0.2} /></mesh>
         </Float>
@@ -1102,16 +1162,18 @@ function StarPanel({ district, onClose }: { district: District; onClose: () => v
   return <motion.aside className="star-panel" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 18 }}><button className="panel-close" onClick={onClose}>Close ×</button><p className="eyebrow">A star in the fog</p><h2>{district.name}</h2><p className="star-copy">{copy}</p><div className="star-waveform">{Array.from({ length: 18 }, (_, index) => <i key={index} style={{ height: `${18 + Math.abs(Math.sin(index * 1.7)) * 38}%` }} />)}</div><button className="primary-button" onClick={onClose}>Let the star return</button></motion.aside>
 }
 
-function MemoryPanel({ index, onClose }: { index: number; onClose: () => void }) {
+function MemoryPanel({ index, album, onClose }: { index: number; album: 'good-days' | 'throwbacks'; onClose: () => void }) {
+  const images = album === 'good-days' ? albumImages : throwbackImages
+  const title = album === 'good-days' ? 'Good days' : 'Throwback archive'
   return (
     <motion.aside className="memory-panel" initial={{ opacity: 0, scale: 0.96, y: 18 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 18 }}>
       <button className="panel-close" onClick={onClose}>Close ×</button>
-      <p className="eyebrow">Good days · memory reliquary</p>
-      <div className="memory-image-wrap"><img src={albumImages[index]} alt={`Good Days memory ${index + 1}`} /></div>
+      <p className="eyebrow">{title} · memory reliquary</p>
+      <div className="memory-image-wrap"><img src={images[index]} alt={`${title} memory ${index + 1}`} /></div>
       <p className="memory-caption">A photograph held by the fog, returned to the table as part of the journey.</p>
       <div className="memory-controls">
         <button className="secondary-button" onClick={() => onClose()}>Return to the fog</button>
-        <span>{index + 1} of {albumImages.length}</span>
+        <span>{index + 1} of {images.length}</span>
       </div>
     </motion.aside>
   )
@@ -1176,7 +1238,7 @@ function App() {
       <AnimatePresence>{realm.arrival && <ArrivalOverlay onSkip={() => realm.set({ arrival: false, arrivalComplete: true })} />}</AnimatePresence>
       <AnimatePresence>{realm.activeAttendee && <CouncilInteraction district={districts.find((district) => district.id === realm.activeAttendee)!} sitting={Boolean(realm.sitting)} onTake={() => realm.set({ sitting: realm.activeAttendee })} onReturn={() => realm.set({ activeAttendee: null, sitting: null })} />}</AnimatePresence>
       <AnimatePresence>{realm.starOpen && <StarPanel district={districts.find((district) => district.id === realm.starOpen)!} onClose={() => realm.set({ starOpen: null })} />}</AnimatePresence>
-      <AnimatePresence>{realm.memoryOpen !== null && <MemoryPanel index={realm.memoryOpen} onClose={() => realm.set({ memoryOpen: null })} />}</AnimatePresence>
+      <AnimatePresence>{realm.memoryOpen !== null && <MemoryPanel index={realm.memoryOpen} album={realm.memoryAlbum} onClose={() => realm.set({ memoryOpen: null })} />}</AnimatePresence>
       <AnimatePresence>{realm.pathwayOpen && <PathwayOverlay onClose={() => realm.set({ pathwayOpen: false })} onSelect={openDistrict} />}</AnimatePresence>
       <AnimatePresence>{realm.paused && <PauseOverlay onClose={() => realm.set({ paused: false })} onClassic={() => realm.set({ paused: false, classic: true })} />}</AnimatePresence>
       <AnimatePresence>{realm.reader && <StoryReader node={story.find((item) => item.id === realm.reader)!} onClose={() => realm.set({ reader: null })} onOpen={openStory} />}</AnimatePresence>

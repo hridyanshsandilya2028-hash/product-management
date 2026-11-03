@@ -24,3 +24,4 @@ The experience is client-side and works without microphone access or sound. Use 
 - The story is now a first-class layer in `src/data/story.ts`: nine story stars form a luminous thread around the table, with a guided Walk the Story mode, chapter reader, Book of the Loop, and full Classic View story.
 - The Whisper Spire and question ritual are labelled as concept or simulated demonstration where appropriate.
 - The supplied Good Days photo album is extracted into `public/album/` and appears as a bronze-framed, clickable memory reliquary in the fog. Selecting a photograph opens it in the same restrained story-panel language as the stars.
+- The supplied throwback album is extracted into `public/throwbacks/` and appears as a separate "Before the Fog" archive along the outer approach, keeping earlier memories distinct from the Good Days reliquary while using the same clickable in-world frame treatment.
