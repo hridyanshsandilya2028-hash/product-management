@@ -1,8 +1,8 @@
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber'
-import { Float, Line, Sparkles, Text } from '@react-three/drei'
-import { Bloom, EffectComposer, Vignette } from '@react-three/postprocessing'
+import { Float, Line, Stats, Text } from '@react-three/drei'
+import { Bloom, EffectComposer, Noise, Vignette } from '@react-three/postprocessing'
 import { AnimatePresence, motion } from 'framer-motion'
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { create } from 'zustand'
 import * as THREE from 'three'
 import { contact, districts, legend, pathways, ranks, type District } from './data/content'
@@ -21,6 +21,7 @@ type RealmState = {
   reader: string | null
   bookOpen: boolean
   debug: boolean
+  performance: boolean
   arrival: boolean
   arrivalComplete: boolean
   activeAttendee: string | null
@@ -45,6 +46,7 @@ const useRealm = create<RealmState>((set) => ({
   reader: null,
   bookOpen: false,
   debug: false,
+  performance: false,
   arrival: false,
   arrivalComplete: false,
   activeAttendee: null,
@@ -57,6 +59,34 @@ const useRealm = create<RealmState>((set) => ({
 }))
 
 const playerPosition = new THREE.Vector3(0, 0, 11)
+const scratchVector = new THREE.Vector3()
+const scratchVectorB = new THREE.Vector3()
+const noiseTexture = (() => {
+  if (typeof document === 'undefined') return null
+  const canvas = document.createElement('canvas')
+  canvas.width = 256
+  canvas.height = 256
+  const context = canvas.getContext('2d')
+  if (!context) return null
+  const image = context.createImageData(256, 256)
+  for (let index = 0; index < image.data.length; index += 4) {
+    const value = Math.floor(Math.random() * 255)
+    image.data[index] = value
+    image.data[index + 1] = value
+    image.data[index + 2] = value
+    image.data[index + 3] = 255
+  }
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.wrapS = THREE.RepeatWrapping
+  texture.wrapT = THREE.RepeatWrapping
+  texture.repeat.set(3, 3)
+  texture.colorSpace = THREE.SRGBColorSpace
+  return texture
+})()
+const throwbackLandscape = new Set([0, 10, 17, 18, 19, 21])
+const PARTICLE_COUNT = 120
+const perfSamples = { frames: 0, started: 0, fps: 0, frameTime: 0, calls: 0, triangles: 0, geometries: 0, textures: 0 }
+const isDevBuild = Boolean((import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV)
 const chairPosition = (districtId: string) => {
   const index = Math.max(0, districts.findIndex((district) => district.id === districtId))
   return new THREE.Vector3(index % 2 ? 3.6 : -3.6, 0, -8 + Math.floor(index / 2) * 3.6)
@@ -70,6 +100,98 @@ const fogMood = (readCount: number) => {
     density: THREE.MathUtils.lerp(0.035, 0.022, progress),
     aurora: THREE.MathUtils.lerp(0.12, 0.72, progress),
   }
+}
+
+function PerformanceProbe() {
+  const { gl } = useThree()
+  const frameClock = useRef({ last: performance.now(), frames: 0 })
+  useFrame(() => {
+    const now = performance.now()
+    frameClock.current.frames += 1
+    if (now - frameClock.current.last >= 500) {
+      const elapsed = now - frameClock.current.last
+      perfSamples.frames = frameClock.current.frames
+      perfSamples.frameTime = elapsed / frameClock.current.frames
+      perfSamples.fps = 1000 / perfSamples.frameTime
+      frameClock.current.frames = 0
+      frameClock.current.last = now
+    }
+  })
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const info = gl.info
+      perfSamples.calls = info.render.calls
+      perfSamples.triangles = info.render.triangles
+      perfSamples.geometries = info.memory.geometries
+      perfSamples.textures = info.memory.textures
+    }, 500)
+    return () => window.clearInterval(timer)
+  }, [gl])
+  return null
+}
+
+function PerformanceOverlay({ enabled }: { enabled: boolean }) {
+  const [snapshot, setSnapshot] = useState({ fps: 0, frameTime: 0, calls: 0, triangles: 0, geometries: 0, textures: 0, particles: PARTICLE_COUNT })
+  useEffect(() => {
+    if (!enabled) return
+    const timer = window.setInterval(() => setSnapshot({
+      fps: perfSamples.fps,
+      frameTime: perfSamples.frameTime,
+      calls: perfSamples.calls,
+      triangles: perfSamples.triangles,
+      geometries: perfSamples.geometries,
+      textures: perfSamples.textures,
+      particles: PARTICLE_COUNT,
+    }), 500)
+    return () => window.clearInterval(timer)
+  }, [enabled])
+  if (!enabled) return null
+  return (
+    <div className="perf-overlay" aria-label="Development performance overlay">
+      <strong>PERF</strong>
+      <span>{snapshot.fps.toFixed(1)} FPS · {snapshot.frameTime.toFixed(1)} ms</span>
+      <span>{snapshot.calls} draw calls · {snapshot.triangles.toLocaleString()} triangles</span>
+      <span>{snapshot.geometries} geometries · {snapshot.textures} textures</span>
+      <span>{snapshot.particles} particles</span>
+    </div>
+  )
+}
+
+function WorldParticles() {
+  const points = useMemo(() => {
+    const positions = new Float32Array(PARTICLE_COUNT * 3)
+    for (let index = 0; index < PARTICLE_COUNT; index += 1) {
+      positions[index * 3] = (Math.random() - 0.5) * 42
+      positions[index * 3 + 1] = 1 + Math.random() * 12
+      positions[index * 3 + 2] = (Math.random() - 0.5) * 42
+    }
+    const geometry = new THREE.BufferGeometry()
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    return geometry
+  }, [])
+  const material = useMemo(() => new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    uniforms: { uTime: { value: 0 } },
+    vertexShader: `
+      uniform float uTime;
+      void main() {
+        vec3 p = position;
+        p.y += mod(uTime * 0.08 + position.x * 0.03, 1.0);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+        gl_PointSize = 1.8;
+      }
+    `,
+    fragmentShader: `
+      void main() {
+        float edge = 1.0 - smoothstep(0.2, 0.5, length(gl_PointCoord - 0.5));
+        gl_FragColor = vec4(0.78, 0.82, 0.9, edge * 0.3);
+      }
+    `,
+  }), [])
+  useFrame(({ clock }) => { material.uniforms.uTime.value = clock.elapsedTime })
+  useEffect(() => () => { points.dispose(); material.dispose() }, [material, points])
+  return <points geometry={points} material={material} />
 }
 
 function FirstPersonHands({ visible }: { visible: boolean }) {
@@ -193,8 +315,6 @@ function Fool({ moving, drifting, sitting, reaching, firstPerson, groupRef, body
           <mesh rotation-y={Math.PI / 2} rotation-z={Math.PI}><torusGeometry args={[0.82, 0.045, 8, 48, Math.PI * 1.45]} /><meshStandardMaterial color="#b78d5a" emissive="#8a5b25" emissiveIntensity={3.5} /></mesh>
           <mesh position={[0.79, 0.02, 0]} rotation-y={Math.PI / 2}><sphereGeometry args={[0.08, 8, 8]} /><meshStandardMaterial color="#d3a25c" emissive="#d3a25c" emissiveIntensity={5} /></mesh>
         </group>
-        <pointLight position={[0, 1.35, 0.65]} color="#73e6df" intensity={3.2} distance={4.5} />
-        <pointLight position={[0, 1.2, -0.5]} color="#d3a25c" intensity={1.2} distance={3} />
       </group>
     </group>
   )
@@ -215,20 +335,20 @@ function FogWake({ motion }: { motion: React.MutableRefObject<MotionState> }) {
   useFrame(({ clock }) => {
     const state = motion.current
     if (cone.current) {
-      cone.current.position.copy(state.position).add(new THREE.Vector3(0, 0.42, 0))
+      cone.current.position.copy(state.position).add(scratchVector.set(0, 0.42, 0))
       cone.current.rotation.set(0, state.yaw, 0)
       cone.current.scale.set(0.7 + state.speed * 0.16, 0.65 + state.speed * 0.12, 1.15 + state.speed * 0.25)
       ;(cone.current.material as THREE.MeshBasicMaterial).opacity = 0.035 + Math.min(state.speed * 0.025, 0.06)
     }
     if (trail.current) {
-      trail.current.position.copy(state.position).add(new THREE.Vector3(0, 0.18, 0))
+      trail.current.position.copy(state.position).add(scratchVector.set(0, 0.18, 0))
       trail.current.rotation.y = state.yaw
       trail.current.rotation.z = Math.sin(clock.elapsedTime * 1.8) * 0.08
       trail.current.scale.set(0.75 + state.speed * 0.12, 0.75 + state.speed * 0.12, 1 + state.speed * 0.3)
       ;(trail.current.material as THREE.MeshBasicMaterial).opacity = 0.025 + (state.drifting ? 0.045 : 0.018)
     }
     if (stillFog.current) {
-      stillFog.current.position.copy(state.position).add(new THREE.Vector3(0, 0.3, 0))
+      stillFog.current.position.copy(state.position).add(scratchVector.set(0, 0.3, 0))
       const density = Math.min(state.still / 9, 1)
       stillFog.current.scale.setScalar(1 + density * 0.8)
       ;(stillFog.current.material as THREE.MeshBasicMaterial).opacity = density * 0.055
@@ -294,11 +414,11 @@ function ArrivalArchitecture({ active }: { active: boolean }) {
         <mesh position-y={4.25}><boxGeometry args={[6.7, 0.72, 0.9]} /><meshStandardMaterial color="#171b2a" roughness={0.95} transparent opacity={opacity} /></mesh>
         <mesh position={[0, 4.05, -0.02]} rotation-y={Math.PI / 2}><torusGeometry args={[2.45, 0.22, 10, 32, Math.PI]} /><meshStandardMaterial color="#2b3042" emissive="#161d2f" emissiveIntensity={1.6} transparent opacity={opacity} /></mesh>
       </group>
-      {[-2.3, 2.3].map((x) => <group key={`lantern-${x}`} position={[x, 1.2, 18]}><mesh position-y={0.7}><cylinderGeometry args={[0.06, 0.06, 1.4, 8]} /><meshStandardMaterial color="#24283a" transparent opacity={opacity} /></mesh><mesh position-y={1.45}><sphereGeometry args={[0.13, 10, 8]} /><meshStandardMaterial color="#d3a25c" emissive="#d3a25c" emissiveIntensity={active ? 2 : 0.3} transparent opacity={opacity} /></mesh><pointLight position={[0, 1.45, 0]} color="#d3a25c" intensity={active ? 1.1 : 0.12} distance={4} /></group>)}
+      {[-2.3, 2.3].map((x) => <group key={`lantern-${x}`} position={[x, 1.2, 18]}><mesh position-y={0.7}><cylinderGeometry args={[0.06, 0.06, 1.4, 8]} /><meshStandardMaterial color="#24283a" transparent opacity={opacity} /></mesh><mesh position-y={1.45}><sphereGeometry args={[0.13, 10, 8]} /><meshStandardMaterial color="#d3a25c" emissive="#d3a25c" emissiveIntensity={active ? 2 : 0.3} transparent opacity={opacity} /></mesh></group>)}
       {Array.from({ length: 8 }, (_, index) => {
         const z = 20 - index * 2.2
         const x = index % 2 ? 2.35 : -2.35
-        return <group key={`path-lantern-${index}`} position={[x, 0.9, z]}><mesh position-y={0.55}><cylinderGeometry args={[0.04, 0.05, 1.1, 8]} /><meshStandardMaterial color="#24283a" transparent opacity={opacity} /></mesh><mesh ref={(mesh) => { glow.current[index] = mesh }} position-y={1.12}><sphereGeometry args={[0.1, 8, 8]} /><meshStandardMaterial color="#d3a25c" emissive="#d3a25c" emissiveIntensity={0.2} transparent opacity={opacity} /></mesh><pointLight ref={(light) => { lights.current[index] = light }} position={[0, 1.12, 0]} color="#d3a25c" intensity={0.06} distance={3} /></group>
+        return <group key={`path-lantern-${index}`} position={[x, 0.9, z]}><mesh position-y={0.55}><cylinderGeometry args={[0.04, 0.05, 1.1, 8]} /><meshStandardMaterial color="#24283a" transparent opacity={opacity} /></mesh><mesh ref={(mesh) => { glow.current[index] = mesh }} position-y={1.12}><sphereGeometry args={[0.1, 8, 8]} /><meshStandardMaterial color="#d3a25c" emissive="#d3a25c" emissiveIntensity={0.2} transparent opacity={opacity} /></mesh></group>
       })}
     </group>
   )
@@ -320,8 +440,8 @@ function FootprintTrail({ positions }: { positions: React.MutableRefObject<{ pos
 function SpectralAttendee({ district, position, active, seated }: { district: District; position: [number, number, number]; active: boolean; seated: boolean }) {
   const head = useRef<THREE.Group>(null)
   const body = useRef<THREE.Group>(null)
+  const world = useMemo(() => new THREE.Vector3(...position), [position])
   useFrame(({ clock }) => {
-    const world = new THREE.Vector3(position[0], position[1], position[2])
     const distance = playerPosition.distanceTo(world)
     const nearby = distance < 5
     const target = nearby ? Math.atan2(playerPosition.x - world.x, playerPosition.z - world.z) : 0
@@ -338,7 +458,6 @@ function SpectralAttendee({ district, position, active, seated }: { district: Di
         <mesh scale={[0.7, 1.15, 0.48]}><coneGeometry args={[0.5, 1.5, 7]} /><meshStandardMaterial color="#1a2032" transparent opacity={0.78} emissive={district.color} emissiveIntensity={active ? 1.6 : 0.7} /></mesh>
         <mesh position-y={0.98} scale={[0.62, 0.8, 0.55]}><coneGeometry args={[0.42, 1, 8]} /><meshStandardMaterial color="#0b101d" transparent opacity={0.86} emissive={district.color} emissiveIntensity={active ? 1.8 : 0.65} /></mesh>
         <mesh position={[0, 0.28, 0.28]}><sphereGeometry args={[0.12, 10, 8]} /><meshStandardMaterial color={district.color} emissive={district.color} emissiveIntensity={active ? 7 : 2.5} transparent opacity={0.9} /></mesh>
-        <pointLight position={[0, 0.28, 0.36]} color={district.color} intensity={active ? 1.5 : 0.45} distance={3} />
       </group>
       <group ref={head} position-y={2.25}>
         <mesh><sphereGeometry args={[0.28, 10, 8]} /><meshStandardMaterial color="#0b101d" transparent opacity={0.85} emissive={district.color} emissiveIntensity={active ? 1.8 : 0.7} /></mesh>
@@ -352,7 +471,6 @@ function SpectralAttendee({ district, position, active, seated }: { district: Di
         </group>
       </Float>
       <mesh position={[0, 0.02, 0]} rotation-x={-Math.PI / 2}><circleGeometry args={[0.52, 16]} /><meshBasicMaterial color={district.color} transparent opacity={active ? 0.1 : 0.035} /></mesh>
-      {seated && <pointLight position={[0, 1.5, -0.2]} color={district.color} intensity={0.7} distance={3} />}
     </group>
   )
 }
@@ -363,7 +481,6 @@ function Chair({ position, rotation, district, onSelect }: { position: [number, 
       <mesh position-y={0.9}><boxGeometry args={[1.3, 0.22, 1.25]} /><meshStandardMaterial color="#352a2b" roughness={0.74} metalness={0.35} /></mesh>
       <mesh position-y={2.05}><boxGeometry args={[1.05, 2.1, 0.22]} /><meshStandardMaterial color="#302a3b" roughness={0.78} metalness={0.25} /></mesh>
       <mesh position={[0, 1.8, 0.17]}><torusGeometry args={[0.28, 0.035, 8, 16]} /><meshStandardMaterial color={district.color} emissive={district.color} emissiveIntensity={3} /></mesh>
-      <pointLight position={[0, 1.8, 0.25]} color={district.color} intensity={1.7} distance={4} />
     </group>
   )
 }
@@ -378,7 +495,6 @@ function Star({ district, position }: { district: District; position: [number, n
       <group position={position}>
         <mesh><icosahedronGeometry args={[0.2, 1]} /><meshStandardMaterial color={district.color} emissive={district.color} emissiveIntensity={6} /></mesh>
         <mesh position-y={-1.1} rotation-x={-Math.PI / 2}><cylinderGeometry args={[0.85, 0.65, 0.16, 6]} /><meshStandardMaterial color="#31374a" roughness={0.9} /></mesh>
-        <pointLight color={district.color} intensity={2.2} distance={6} />
       </group>
     </Float>
   )
@@ -407,8 +523,8 @@ function StarPath({ target, drifting }: { target: THREE.Vector3 | null; drifting
 function StarDestination({ district, position, open, onOpen }: { district: District; position: [number, number, number]; open: boolean; onOpen: (district: District) => void }) {
   const platform = useRef<THREE.Mesh>(null)
   const label = useRef<THREE.Group>(null)
+  const world = useMemo(() => new THREE.Vector3(...position), [position])
   useFrame(({ clock }) => {
-    const world = new THREE.Vector3(...position)
     const distance = playerPosition.distanceTo(world)
     const near = distance < 5
     if (platform.current) {
@@ -421,7 +537,6 @@ function StarDestination({ district, position, open, onOpen }: { district: Distr
     <group position={position} onClick={(event) => { event.stopPropagation(); onOpen(district) }} onPointerOver={(event) => { event.stopPropagation(); document.body.style.cursor = 'pointer' }} onPointerOut={() => { document.body.style.cursor = 'default' }}>
       <mesh ref={platform} position-y={-1.08}><cylinderGeometry args={[0.95, 0.72, 0.18, 7]} /><meshStandardMaterial color="#34384a" emissive={district.color} emissiveIntensity={0.7} roughness={0.9} /></mesh>
       <mesh><icosahedronGeometry args={[0.25, 1]} /><meshStandardMaterial color={district.color} emissive={district.color} emissiveIntensity={open ? 10 : 6} /></mesh>
-      <pointLight color={district.color} intensity={open ? 4 : 2.2} distance={6} />
       <group ref={label}>
         <Text position={[0, 0.65, 0]} fontSize={0.3} color="#eee7d8" anchorX="center" anchorY="middle" outlineWidth={0.02} outlineColor="#0b1020">{district.shortName}</Text>
       </group>
@@ -462,9 +577,26 @@ function Controller() {
   const previousDrifting = useRef(false)
   const arrivalTime = useRef(0)
   const arrivalWasActive = useRef(false)
+  const input = useRef(new THREE.Vector3())
+  const forward = useRef(new THREE.Vector3())
+  const right = useRef(new THREE.Vector3())
+  const desired = useRef(new THREE.Vector3())
+  const candidate = useRef(new THREE.Vector3())
+  const target = useRef(new THREE.Vector3())
+  const desiredCamera = useRef(new THREE.Vector3())
+  const cameraOffset = useRef(new THREE.Vector3())
+  const look = useRef(new THREE.Euler())
+  const chairOffset = useRef(new THREE.Vector2())
   const motion = useRef<MotionState>({ position: position.current, yaw: 0, speed: 0, drifting: false, still: 0 })
   const [moving, setMoving] = useState(false)
   const [drifting, setDrifting] = useState(false)
+  const movingState = useRef(false)
+  const updateMoving = (value: boolean) => {
+    if (movingState.current !== value) {
+      movingState.current = value
+      setMoving(value)
+    }
+  }
 
   useEffect(() => {
     const down = (event: KeyboardEvent) => {
@@ -487,6 +619,7 @@ function Controller() {
       }
       if (event.code === 'KeyN') realm.set({ compass: !realm.compass })
       if (event.code === 'KeyH') realm.set({ debug: !realm.debug })
+      if (event.code === 'KeyP') realm.set({ performance: !realm.performance })
       if (event.code === 'Tab') { event.preventDefault(); realm.set({ pathwayOpen: !realm.pathwayOpen }) }
       if (event.code === 'Escape') {
         if (realm.sitting) realm.set({ sitting: null, activeAttendee: null })
@@ -538,41 +671,43 @@ function Controller() {
       const walkTime = THREE.MathUtils.clamp((arrivalTime.current - 1.8) / 8.2, 0, 1)
       position.current.set(0, 0, THREE.MathUtils.lerp(22, 10.9, walkTime))
       bodyYaw.current = Math.PI
-      const target = new THREE.Vector3(0, 1.45, position.current.z + 3.2)
+      target.current.set(0, 1.45, position.current.z + 3.2)
       const arrivalCamera = arrivalTime.current < 1.8
-        ? new THREE.Vector3(0, 3.2, 26)
-        : target.clone().add(new THREE.Vector3(0, 1.25, 3.8))
+        ? scratchVector.set(0, 3.2, 26)
+        : target.current.clone().add(scratchVectorB.set(0, 1.25, 3.8))
       camera.position.lerp(arrivalCamera, 1 - Math.exp(-3.2 * delta))
-      camera.lookAt(new THREE.Vector3(0, 1.4, position.current.z - 1))
+      camera.lookAt(scratchVector.set(0, 1.4, position.current.z - 1))
       if (arrivalTime.current > 10.8) realm.set({ arrival: false, arrivalComplete: true })
-      setMoving(walkTime > 0 && walkTime < 1)
+      updateMoving(walkTime > 0 && walkTime < 1)
       return
     }
     if (realm.sitting) {
       const seat = chairPosition(realm.sitting)
-      position.current.lerp(new THREE.Vector3(seat.x, 0.62, seat.z + (seat.x > 0 ? 0.45 : -0.45)), 1 - Math.exp(-4 * delta))
+      scratchVector.set(seat.x, 0.62, seat.z + (seat.x > 0 ? 0.45 : -0.45))
+      position.current.lerp(scratchVector, 1 - Math.exp(-4 * delta))
       bodyYaw.current = seat.x > 0 ? Math.PI / 2 : -Math.PI / 2
       velocity.current.set(0, 0, 0)
-      camera.position.lerp(new THREE.Vector3(position.current.x, 1.65, position.current.z + (seat.x > 0 ? 2.8 : -2.8)), 1 - Math.exp(-3.5 * delta))
-      camera.lookAt(new THREE.Vector3(0, 1.45, 0))
+      scratchVector.set(position.current.x, 1.65, position.current.z + (seat.x > 0 ? 2.8 : -2.8))
+      camera.position.lerp(scratchVector, 1 - Math.exp(-3.5 * delta))
+      camera.lookAt(scratchVector.set(0, 1.45, 0))
       playerPosition.copy(position.current)
-      setMoving(false)
+      updateMoving(false)
       return
     }
-    const input = new THREE.Vector3()
-    if (keys.current.KeyW || keys.current.ArrowUp) input.z -= 1
-    if (keys.current.KeyS || keys.current.ArrowDown) input.z += 1
-    if (keys.current.KeyA || keys.current.ArrowLeft) input.x -= 1
-    if (keys.current.KeyD || keys.current.ArrowRight) input.x += 1
-    const isMoving = input.lengthSq() > 0
+    input.current.set(0, 0, 0)
+    if (keys.current.KeyW || keys.current.ArrowUp) input.current.z -= 1
+    if (keys.current.KeyS || keys.current.ArrowDown) input.current.z += 1
+    if (keys.current.KeyA || keys.current.ArrowLeft) input.current.x -= 1
+    if (keys.current.KeyD || keys.current.ArrowRight) input.current.x += 1
+    const isMoving = input.current.lengthSq() > 0
     const slow = keys.current.ShiftLeft || keys.current.ShiftRight
     const maxSpeed = drifting ? (slow ? 1.25 : 2.2) : (slow ? 0.85 : 1.8)
-    if (isMoving) input.normalize()
-    const forward = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current))
-    const right = new THREE.Vector3(Math.cos(yaw.current), 0, -Math.sin(yaw.current))
-    const desired = new THREE.Vector3().addScaledVector(forward, -input.z).addScaledVector(right, input.x).multiplyScalar(maxSpeed)
-    velocity.current.lerp(desired, 1 - Math.exp(-(isMoving ? 5.2 : 3.2) * delta))
-    const candidate = position.current.clone().addScaledVector(velocity.current, delta)
+    if (isMoving) input.current.normalize()
+    forward.current.set(-Math.sin(yaw.current), 0, -Math.cos(yaw.current))
+    right.current.set(Math.cos(yaw.current), 0, -Math.sin(yaw.current))
+    desired.current.copy(forward.current).multiplyScalar(-input.current.z).addScaledVector(right.current, input.current.x).multiplyScalar(maxSpeed)
+    velocity.current.lerp(desired.current, 1 - Math.exp(-(isMoving ? 5.2 : 3.2) * delta))
+    candidate.current.copy(position.current).addScaledVector(velocity.current, delta)
     const slide = (x: number, z: number) => {
       const radius = 0.48
       if (x > -2.72 && x < 2.72 && z > -10.15 && z < 10.15) {
@@ -591,7 +726,7 @@ function Controller() {
       }
       return { x, z }
     }
-    const resolved = slide(candidate.x, candidate.z)
+    const resolved = slide(candidate.current.x, candidate.current.z)
     position.current.x = resolved.x
     position.current.z = resolved.z
     if (drifting) {
@@ -640,35 +775,38 @@ function Controller() {
     }
     motion.current = { position: position.current, yaw: yaw.current, speed: horizontalSpeed, drifting, still: isMoving ? 0 : motion.current.still + delta }
     previousDrifting.current = drifting
-    const target = new THREE.Vector3(position.current.x, position.current.y + 1.6, position.current.z)
-    const look = new THREE.Euler(pitch.current, yaw.current, 0, 'YXZ')
-    const desiredCamera = realm.firstPerson
-      ? target
-      : target.clone().add(new THREE.Vector3(0, 1.35, 3.2).applyEuler(new THREE.Euler(0, yaw.current, 0)))
-    desiredCamera.y = Math.max(desiredCamera.y, 0.45)
-    if (desiredCamera.x > -2.95 && desiredCamera.x < 2.95 && desiredCamera.z > -10.35 && desiredCamera.z < 10.35) {
-      desiredCamera.z = desiredCamera.z < position.current.z ? -10.45 : 10.45
+    target.current.set(position.current.x, position.current.y + 1.6, position.current.z)
+    look.current.set(pitch.current, yaw.current, 0, 'YXZ')
+    desiredCamera.current.copy(target.current)
+    if (!realm.firstPerson) {
+      cameraOffset.current.set(0, 1.35, 3.2)
+      cameraOffset.current.applyAxisAngle(THREE.Object3D.DEFAULT_UP, yaw.current)
+      desiredCamera.current.add(cameraOffset.current)
+    }
+    desiredCamera.current.y = Math.max(desiredCamera.current.y, 0.45)
+    if (desiredCamera.current.x > -2.95 && desiredCamera.current.x < 2.95 && desiredCamera.current.z > -10.35 && desiredCamera.current.z < 10.35) {
+      desiredCamera.current.z = desiredCamera.current.z < position.current.z ? -10.45 : 10.45
     }
     for (let index = 0; index < 10; index += 1) {
       const chairX = index % 2 ? 3.6 : -3.6
       const chairZ = -8 + Math.floor(index / 2) * 3.6
-      const offset = new THREE.Vector2(desiredCamera.x - chairX, desiredCamera.z - chairZ)
-      const distance = offset.length()
+      chairOffset.current.set(desiredCamera.current.x - chairX, desiredCamera.current.z - chairZ)
+      const distance = chairOffset.current.length()
       if (distance < 1.15) {
-        const safe = offset.normalize().multiplyScalar(1.15)
-        desiredCamera.x = chairX + safe.x
-        desiredCamera.z = chairZ + safe.y
+        chairOffset.current.normalize().multiplyScalar(1.15)
+        desiredCamera.current.x = chairX + chairOffset.current.x
+        desiredCamera.current.z = chairZ + chairOffset.current.y
       }
     }
-    cameraPosition.current.lerp(desiredCamera, 1 - Math.exp(-7 * delta))
+    cameraPosition.current.lerp(desiredCamera.current, 1 - Math.exp(-7 * delta))
     camera.position.copy(cameraPosition.current)
     if ('fov' in camera) {
       const perspective = camera as THREE.PerspectiveCamera
       perspective.fov = THREE.MathUtils.lerp(perspective.fov, 72 + Math.min(horizontalSpeed * 3.2, 6), 1 - Math.exp(-4 * delta))
       perspective.updateProjectionMatrix()
     }
-    camera.quaternion.setFromEuler(look)
-    setMoving(isMoving)
+    camera.quaternion.setFromEuler(look.current)
+    updateMoving(isMoving)
   })
   return (
     <>
@@ -704,30 +842,13 @@ function GroundMist() {
   const mist = useRef<THREE.Mesh>(null)
   useFrame(({ clock }) => {
     if (!mist.current) return
-    const material = mist.current.material as THREE.ShaderMaterial
-    material.uniforms.uTime.value = clock.elapsedTime
+    const material = mist.current.material as THREE.MeshBasicMaterial
+    if (noiseTexture) material.map?.offset.set(clock.elapsedTime * 0.006, clock.elapsedTime * 0.004)
   })
   return (
-    <mesh ref={mist} rotation-x={-Math.PI / 2} position-y={0.04}>
-      <planeGeometry args={[62, 62, 64, 64]} />
-      <shaderMaterial transparent depthWrite={false} blending={THREE.AdditiveBlending} uniforms={{ uTime: { value: 0 }, uColor: { value: new THREE.Color('#aeb5c5') } }} vertexShader={`
-        uniform float uTime;
-        varying float vNoise;
-        void main() {
-          vec3 p = position;
-          float wave = sin(p.x * 0.18 + uTime * 0.18) * 0.22 + cos(p.y * 0.24 - uTime * 0.13) * 0.16;
-          p.z += wave;
-          vNoise = 0.5 + 0.5 * sin(p.x * 0.31 + p.y * 0.17 + uTime * 0.25);
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
-        }
-      `} fragmentShader={`
-        uniform vec3 uColor;
-        varying float vNoise;
-        void main() {
-          float edge = smoothstep(1.0, 0.08, length(gl_PointCoord - 0.5));
-          gl_FragColor = vec4(uColor, (0.055 + vNoise * 0.07) * edge);
-        }
-      `} />
+    <mesh ref={mist} rotation-x={-Math.PI / 2} position-y={0.04} frustumCulled>
+      <planeGeometry args={[42, 42, 1, 1]} />
+      <meshBasicMaterial map={noiseTexture ?? undefined} color="#aeb5c5" transparent opacity={0.11} depthWrite={false} blending={THREE.AdditiveBlending} />
     </mesh>
   )
 }
@@ -790,7 +911,6 @@ function CeilingSky({ aurora }: { aurora: number }) {
           <meshBasicMaterial color={index % 2 ? '#73e6df' : '#9e9ee9'} transparent opacity={0.25} depthWrite={false} />
         </mesh>
       ))}
-      <Sparkles count={180} scale={[42, 4, 42]} position={[0, 13, 0]} size={2.2} speed={0.12} color="#e8e1d2" opacity={0.36} />
     </group>
   )
 }
@@ -1020,7 +1140,6 @@ function MemoryGallery({ onOpen }: { onOpen: (index: number) => void }) {
               <boxGeometry args={[width * 0.72, 0.035, 0.025]} />
               <meshStandardMaterial color="#73e6df" emissive="#73e6df" emissiveIntensity={2.4} />
             </mesh>
-            <pointLight position={[0, 0, 0.2]} color="#d3a25c" intensity={0.28} distance={3.5} />
           </group>
         )
       })}
@@ -1046,7 +1165,7 @@ function ThrowbackGallery({ onOpen }: { onOpen: (index: number) => void }) {
       </group>
       {textures.map((texture, index) => {
         const [x, y, z] = throwbackPosition(index)
-        const landscape = index === 0 || index === 10 || index === 17 || index === 18 || index === 19 || index === 21
+        const landscape = throwbackLandscape.has(index)
         const width = landscape ? 1.5 : 1.08
         const height = landscape ? 0.86 : 1.44
         return (
@@ -1072,6 +1191,11 @@ function ThrowbackGallery({ onOpen }: { onOpen: (index: number) => void }) {
 
 function Scene({ onChairSelect, onStarSelect }: { onChairSelect: (district: District) => void; onStarSelect: (district: District) => void }) {
   const realm = useRealm()
+  useEffect(() => {
+    if (isDevBuild) {
+      console.info('[Ouroboros perf] Pre-fix hotspots: duplicate particle systems, repeated point lights, 41 image materials, and a 64x64 animated ground shader.')
+    }
+  }, [])
   const chairs = districts.slice(0, 10).map((district, index) => ({
     district,
     position: [index % 2 ? 3.6 : -3.6, 0, -8 + Math.floor(index / 2) * 3.6] as [number, number, number],
@@ -1081,7 +1205,8 @@ function Scene({ onChairSelect, onStarSelect }: { onChairSelect: (district: Dist
   const unreadStar = stars.filter(({ district }) => !realm.storyRead.includes(district.id)).sort((a, b) => playerPosition.distanceTo(new THREE.Vector3(...a.position)) - playerPosition.distanceTo(new THREE.Vector3(...b.position)))[0]
   return (
     <div className="scene" aria-hidden="true">
-      <Canvas camera={{ position: [0, 1.6, 15], fov: 72 }} dpr={[1, 1.5]}>
+      <Canvas camera={{ position: [0, 1.6, 15], fov: 72 }} dpr={[1, 1.5]} gl={{ antialias: false, powerPreference: 'high-performance' }} frameloop="always">
+        <Suspense fallback={null}>
         <color attach="background" args={['#8a8fa3']} />
         <fogExp2 attach="fog" args={['#8a8fa3', 0.035]} />
         <MoodAtmosphere />
@@ -1110,12 +1235,20 @@ function Scene({ onChairSelect, onStarSelect }: { onChairSelect: (district: Dist
         <MemoryGallery onOpen={(index) => realm.set({ memoryOpen: index, memoryAlbum: 'good-days' })} />
         <ThrowbackGallery onOpen={(index) => realm.set({ memoryOpen: index, memoryAlbum: 'throwbacks' })} />
         <Float speed={0.3} rotationIntensity={0.15} floatIntensity={0.5}>
-          <mesh position={[0, 5.2, -10.5]}><torusKnotGeometry args={[1.3, 0.14, 128, 16, 2, 3]} /><meshStandardMaterial color="#b78d5a" emissive="#80521f" emissiveIntensity={3} metalness={0.75} roughness={0.2} /></mesh>
+          <mesh position={[0, 5.2, -10.5]}><torusKnotGeometry args={[1.3, 0.14, 48, 8, 2, 3]} /><meshStandardMaterial color="#b78d5a" emissive="#80521f" emissiveIntensity={3} metalness={0.75} roughness={0.2} /></mesh>
         </Float>
-        <Sparkles count={220} scale={[42, 7, 42]} position={[0, 3.2, 0]} size={2.3} speed={0.08} color="#e2e4ed" opacity={0.32} />
+        <WorldParticles />
         <Controller />
-        <EffectComposer><Bloom luminanceThreshold={0.6} intensity={1.9} mipmapBlur /><Vignette eskil={false} offset={0.1} darkness={0.84} /></EffectComposer>
+        {isDevBuild && <Stats showPanel={0} />}
+        {isDevBuild && <PerformanceProbe />}
+        <EffectComposer multisampling={0} resolutionScale={0.75}>
+          <Bloom luminanceThreshold={0.82} intensity={1.25} radius={0.55} mipmapBlur />
+          <Vignette eskil={false} offset={0.18} darkness={0.72} />
+          <Noise opacity={0.035} premultiply />
+        </EffectComposer>
+        </Suspense>
       </Canvas>
+      {isDevBuild && <PerformanceOverlay enabled={realm.performance} />}
       <div className="mist mist-a" /><div className="mist mist-b" />
     </div>
   )

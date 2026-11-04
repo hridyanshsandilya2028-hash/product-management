@@ -9,6 +9,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid #73e6df; outline-
 .app-shell { min-height: 100vh; overflow: hidden; position: relative; isolation: isolate; background: #0b1020; }
 .scene { position: fixed; inset: 0; z-index: -3; }
 .scene canvas { width: 100% !important; height: 100% !important; }
+.perf-overlay { position: fixed; top: 12px; left: 12px; z-index: 20; display: grid; gap: 3px; min-width: 230px; padding: 10px 12px; color: #d7f8f6; background: rgba(7, 12, 22, .86); border: 1px solid rgba(115, 230, 223, .42); font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; pointer-events: none; }
+.perf-overlay strong { color: #73e6df; letter-spacing: .16em; font-size: 10px; }
 .grain { position: fixed; inset: 0; pointer-events: none; z-index: -1; opacity: .14; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.32'/%3E%3C/svg%3E"); }
 .mist { position: fixed; width: 65vw; height: 30vh; left: 10vw; bottom: 4vh; background: #9da2bd; filter: blur(80px); opacity: .11; pointer-events: none; border-radius: 50%; animation: drift 16s ease-in-out infinite alternate; }
 .mist-b { left: 55vw; bottom: 25vh; width: 42vw; opacity: .08; animation-delay: -7s; }
