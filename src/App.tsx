@@ -779,7 +779,7 @@ function Controller() {
     look.current.set(pitch.current, yaw.current, 0, 'YXZ')
     desiredCamera.current.copy(target.current)
     if (!realm.firstPerson) {
-      cameraOffset.current.set(0, 1.35, 3.2)
+      cameraOffset.current.set(0, 1.55, 5.2)
       cameraOffset.current.applyAxisAngle(THREE.Object3D.DEFAULT_UP, yaw.current)
       desiredCamera.current.add(cameraOffset.current)
     }
@@ -1152,14 +1152,14 @@ function ThrowbackGallery({ onOpen }: { onOpen: (index: number) => void }) {
   return (
     <group>
       <group position={[0, 3.9, 12.8]}>
-        <mesh rotation-y={Math.PI}>
+        <mesh>
           <torusGeometry args={[1.5, 0.03, 8, 48]} />
           <meshStandardMaterial color="#6f7d90" emissive="#34475c" emissiveIntensity={2} />
         </mesh>
-        <Text position={[0, 0, 0.08]} rotation-y={Math.PI} fontSize={0.25} color="#d3d5dc" anchorX="center" anchorY="middle">
+        <Text position={[0, 0, 0.08]} fontSize={0.25} color="#d3d5dc" anchorX="center" anchorY="middle">
           THROWBACK ARCHIVE
         </Text>
-        <Text position={[0, -0.38, 0.08]} rotation-y={Math.PI} fontSize={0.11} color="#73e6df" anchorX="center" anchorY="middle">
+        <Text position={[0, -0.38, 0.08]} fontSize={0.11} color="#73e6df" anchorX="center" anchorY="middle">
           BEFORE THE FOG
         </Text>
       </group>
